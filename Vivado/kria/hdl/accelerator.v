@@ -345,10 +345,10 @@ module accelerator #(
                 .WORDS_PER_ROW      (WORDS_PER_ROW),
                 .NUM_ROWS           (NUM_ROWS),
                 .NUM_CHANNELS       (NUM_CHANNELS),
-                .NUM_RAM_PARTITIONS (NUM_RAM_PARTITIONS),
+                .NUM_PARTITIONS     (NUM_RAM_PARTITIONS),
                 .ROWS_PER_CHANNEL   (ROWS_PER_CHANNEL),
-                .AXI_RAM_DATA_WIDTH (AXI_RAM_DATA_WIDTH),
-                .AXI_RAM_BASE_ADDR  (AXI_RAM_BASE_ADDR)
+                .MVM_RAM_DATA_WIDTH (AXI_RAM_DATA_WIDTH),
+                .MVM_RAM_BASE_ADDR  (AXI_RAM_BASE_ADDR)
             ) iter (
                 .clk(clk),
                 .rstn(rstn),

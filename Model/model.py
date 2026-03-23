@@ -87,11 +87,17 @@ def model(H, T, state):
                             tau[:, t] ** (1 / ((khi / Omega + (1 + theta) / (1 + 2 * theta)) * (1 + 2 * theta))) * \
                             m2 ** (khi / (Omega * (khi / Omega + (1 + theta) / (1 + 2 * theta))))
         input_uhat_inner[H == 0] = 0
+
+        i_exp = exponent_l / Omega - theta ** 2 / (1 + 2 * theta)
+        u_exp = 1 / (khi * theta / Omega + theta * (1 + theta) / (1 + 2 * theta))
+
+        print(f"i_exp: {i_exp}")
+        print(f"u_exp: {u_exp}")
         
         # Inner loop
         while error >= 1e-2:
             uhat_old = uhat_loop.copy()
-            input_integral_inner = input_integral_outer * uhat_loop ** (exponent_l / Omega - theta ** 2 / (1 + 2 * theta))
+            input_integral_inner = input_integral_outer * uhat_loop ** i_exp
             input_integral_inner[uhat_loop == 0] = 0
             
             # Matrix product
@@ -100,7 +106,7 @@ def model(H, T, state):
             eps_val = 1e-12
             rhs = np.maximum(rhs, eps_val)
             
-            uhat_loop = aa2 * input_uhat_inner * rhs ** (1 / (khi * theta / Omega + theta * (1 + theta) / (1 + 2 * theta)))
+            uhat_loop = aa2 * input_uhat_inner * rhs ** u_exp
             error = np.sum((uhat_loop - uhat_old) ** 2)
         
         uhat[:, t] = uhat_loop

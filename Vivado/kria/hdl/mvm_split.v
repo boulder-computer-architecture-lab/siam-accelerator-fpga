@@ -283,14 +283,18 @@ module mvm_split #(
         end
     endfunction
     
-    localparam AXI_RAM_ELEMENTS_PER_WORD    = AXI_RAM_DATA_WIDTH / ELEMENT_WIDTH;
-    localparam AXI_RAM_WORDS_PER_ROW        = ELEMENTS_PER_ROW / AXI_RAM_ELEMENTS_PER_WORD;
-    localparam AXI_RAM_WORDS_PER_PARTITION  = AXI_RAM_WORDS_PER_ROW / NUM_RAM_PARTITIONS;
-    localparam AXI_RAM_ADDR_WIDTH  = $clog2(AXI_RAM_WORDS_PER_PARTITION * AXI_RAM_STRB_WIDTH);
-    localparam [ADDR_WIDTH-1:0] REGION_STRIDE = (1 << AXI_RAM_ADDR_WIDTH);
+    localparam AXI_RAM_ELEMENTS_PER_WORD   = AXI_RAM_DATA_WIDTH / ELEMENT_WIDTH;
+    localparam AXI_RAM_WORDS_PER_ROW       = ELEMENTS_PER_ROW / AXI_RAM_ELEMENTS_PER_WORD;
+    localparam AXI_RAM_WORDS_PER_PARTITION = AXI_RAM_WORDS_PER_ROW / NUM_RAM_PARTITIONS;
+    localparam AXI_RAM_BYTES_PER_PARTITION = AXI_RAM_WORDS_PER_PARTITION * AXI_RAM_STRB_WIDTH;
+    localparam AXI_RAM_ID_WIDTH            = ID_WIDTH + $clog2(NUM_CHANNELS);
+
+    localparam AXI_RAM_LOCAL_ADDR_WIDTH  = $clog2(AXI_RAM_BYTES_PER_PARTITION);
+    localparam AXI_RAM_DECODE_ADDR_WIDTH = (AXI_RAM_LOCAL_ADDR_WIDTH < 12) ? 12 : AXI_RAM_LOCAL_ADDR_WIDTH;
+
+    localparam [ADDR_WIDTH-1:0] REGION_STRIDE = (1 << AXI_RAM_DECODE_ADDR_WIDTH);
     localparam [NUM_RAM_PARTITIONS*ADDR_WIDTH-1:0] M_BASE_ADDR = gen_m_base_addr(AXI_RAM_BASE_ADDR, REGION_STRIDE);
-    localparam [NUM_RAM_PARTITIONS*32-1:0] M_ADDR_WIDTH = {NUM_RAM_PARTITIONS{AXI_RAM_ADDR_WIDTH}};
-    localparam AXI_RAM_ID_WIDTH = ID_WIDTH + $clog2(NUM_CHANNELS);
+    localparam [NUM_RAM_PARTITIONS*32-1:0] M_ADDR_WIDTH = {NUM_RAM_PARTITIONS{AXI_RAM_DECODE_ADDR_WIDTH}};
     
     wire [AXI_RAM_ID_WIDTH-1:0]   ram_m_axi_awid    [NUM_RAM_PARTITIONS-1:0];
     wire [ADDR_WIDTH-1:0]         ram_m_axi_awaddr  [NUM_RAM_PARTITIONS-1:0];
@@ -393,7 +397,7 @@ module mvm_split #(
             
             axi_ram #(
                 .DATA_WIDTH(AXI_RAM_DATA_WIDTH),
-                .ADDR_WIDTH(AXI_RAM_ADDR_WIDTH),
+                .ADDR_WIDTH(AXI_RAM_LOCAL_ADDR_WIDTH),
                 .STRB_WIDTH(AXI_RAM_STRB_WIDTH),
                 .ID_WIDTH  (AXI_RAM_ID_WIDTH),
                 .NUM_WORDS (AXI_RAM_WORDS_PER_PARTITION)
@@ -401,7 +405,7 @@ module mvm_split #(
                 .clk(clk), .rstn(rstn),
         
                 .s_axi_awid   (ram_m_axi_awid   [k]),
-                .s_axi_awaddr (ram_m_axi_awaddr [k][AXI_RAM_ADDR_WIDTH-1:0]),
+                .s_axi_awaddr (ram_m_axi_awaddr [k][AXI_RAM_LOCAL_ADDR_WIDTH-1:0]),
                 .s_axi_awlen  (ram_m_axi_awlen  [k]),
                 .s_axi_awsize (ram_m_axi_awsize [k]),
                 .s_axi_awburst(ram_m_axi_awburst[k]),
@@ -423,7 +427,7 @@ module mvm_split #(
                 .s_axi_bready (ram_m_axi_bready [k]),
         
                 .s_axi_arid   (ram_m_axi_arid   [k]),
-                .s_axi_araddr (ram_m_axi_araddr [k][AXI_RAM_ADDR_WIDTH-1:0]),
+                .s_axi_araddr (ram_m_axi_araddr [k][AXI_RAM_LOCAL_ADDR_WIDTH-1:0]),
                 .s_axi_arlen  (ram_m_axi_arlen  [k]),
                 .s_axi_arsize (ram_m_axi_arsize [k]),
                 .s_axi_arburst(ram_m_axi_arburst[k]),

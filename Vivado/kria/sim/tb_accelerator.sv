@@ -3,7 +3,7 @@
 module tb_accelerator;
 
     `include "axi_a_channel_bindings.svh"
-    `define GET_CHANNELS `CHANNELS_4 // <------------ `CHANNELS_{CHANNELS_PER_INST} (must match the parameter)
+    `define GET_CHANNELS `CHANNELS_4 // <------------ `CHANNELS_{NUM_CHANNELS} (must match the parameter)
                                      // Note: Also run ./Vivado/scripts/update_channels.py when this 
                                      // is changed to update all the relevant header files
 
@@ -20,14 +20,11 @@ module tb_accelerator;
     parameter int DATA_WIDTH = 128; // Max data width for HP ports is 128
     parameter int ADDR_WIDTH = 64;
     parameter int ID_WIDTH   = 8;
-    parameter int STRB_WIDTH = DATA_WIDTH/8; // Unused
     
     parameter int ELEMENT_WIDTH = 16; // Can be 16, 32, or 64
     
-    parameter int NUM_ACCEL_INST     = 1;
-    parameter int CHANNELS_PER_INST  = 4;
-    parameter int NUM_CHANNELS       = NUM_ACCEL_INST * CHANNELS_PER_INST;
-    parameter int NUM_RAM_PARTITIONS = CHANNELS_PER_INST;
+    parameter int NUM_CHANNELS       = 4;
+    parameter int NUM_RAM_PARTITIONS = NUM_CHANNELS;
     
     parameter int ELEMENTS_PER_ROW = 17048;
     parameter int NUM_ROWS         = 48;
@@ -38,9 +35,11 @@ module tb_accelerator;
     parameter int AXI_RAM_STRB_WIDTH = AXI_RAM_DATA_WIDTH/8;
     
     int OFFSET_CYCLES = 1000;
-    int input_order[CHANNELS_PER_INST] = '{1, 2, 3, 4}; // Switch the order that s_axis_a channels start arriving. 
-                                                        // Set to (0, 0, 0, 0) for simultaneous start, but note that
-                                                        // the partition arbitration logic assumes an offset.
+    int input_order[NUM_CHANNELS] = '{1, 2, 3, 4}; // Switch the order that s_axis_a channels start arriving. 
+                                                   // Set to (0, 0, 0, 0) for simultaneous start, but note that
+                                                   // the partition arbitration logic assumes an offset.
+    
+    localparam [ADDR_WIDTH-1:0] AXI_RAM_BASE_ADDR = { {(ADDR_WIDTH-32){1'b0}}, 32'h8000_0000 };
     
     localparam ELEMENTS_PER_WORD      = DATA_WIDTH / ELEMENT_WIDTH;
     localparam WORDS_PER_ROW          = ELEMENTS_PER_ROW / ELEMENTS_PER_WORD;
@@ -260,25 +259,25 @@ module tb_accelerator;
     logic                    m_axis_tlast  [NUM_CHANNELS] = '{default:1'b0};
 
     // AXI Full write interface for vector b
-    logic [ID_WIDTH-1:0]           s_axi_b_awid    [NUM_ACCEL_INST] = '{default:'0};
-    logic [ADDR_WIDTH-1:0]         s_axi_b_awaddr  [NUM_ACCEL_INST] = '{default:'0};
-    logic [7:0]                    s_axi_b_awlen   [NUM_ACCEL_INST] = '{default:'0};
-    logic [2:0]                    s_axi_b_awsize  [NUM_ACCEL_INST] = '{default:'0};
-    logic [1:0]                    s_axi_b_awburst [NUM_ACCEL_INST] = '{default:'0};
-    logic                          s_axi_b_awlock  [NUM_ACCEL_INST] = '{default:'0};
-    logic [3:0]                    s_axi_b_awcache [NUM_ACCEL_INST] = '{default:'0};
-    logic [2:0]                    s_axi_b_awprot  [NUM_ACCEL_INST] = '{default:'0};
-    logic                          s_axi_b_awvalid [NUM_ACCEL_INST] = '{default:'0};
-    logic                          s_axi_b_awready [NUM_ACCEL_INST] = '{default:'0};
-    logic [AXI_RAM_DATA_WIDTH-1:0] s_axi_b_wdata   [NUM_ACCEL_INST] = '{default:'0};
-    logic [AXI_RAM_STRB_WIDTH-1:0] s_axi_b_wstrb   [NUM_ACCEL_INST] = '{default:'0};
-    logic                          s_axi_b_wlast   [NUM_ACCEL_INST] = '{default:'0};
-    logic                          s_axi_b_wvalid  [NUM_ACCEL_INST] = '{default:'0};
-    logic                          s_axi_b_wready  [NUM_ACCEL_INST] = '{default:'0};
-    logic [ID_WIDTH-1:0]           s_axi_b_bid     [NUM_ACCEL_INST] = '{default:'0};
-    logic [1:0]                    s_axi_b_bresp   [NUM_ACCEL_INST] = '{default:'0};
-    logic                          s_axi_b_bvalid  [NUM_ACCEL_INST] = '{default:'0};
-    logic                          s_axi_b_bready  [NUM_ACCEL_INST] = '{default:'0};
+    logic [ID_WIDTH-1:0]           s_axi_b_awid    = '{default:'0};
+    logic [ADDR_WIDTH-1:0]         s_axi_b_awaddr  = '{default:'0};
+    logic [7:0]                    s_axi_b_awlen   = '{default:'0};
+    logic [2:0]                    s_axi_b_awsize  = '{default:'0};
+    logic [1:0]                    s_axi_b_awburst = '{default:'0};
+    logic                          s_axi_b_awlock  = '{default:'0};
+    logic [3:0]                    s_axi_b_awcache = '{default:'0};
+    logic [2:0]                    s_axi_b_awprot  = '{default:'0};
+    logic                          s_axi_b_awvalid = '{default:'0};
+    logic                          s_axi_b_awready = '{default:'0};
+    logic [AXI_RAM_DATA_WIDTH-1:0] s_axi_b_wdata   = '{default:'0};
+    logic [AXI_RAM_STRB_WIDTH-1:0] s_axi_b_wstrb   = '{default:'0};
+    logic                          s_axi_b_wlast   = '{default:'0};
+    logic                          s_axi_b_wvalid  = '{default:'0};
+    logic                          s_axi_b_wready  = '{default:'0};
+    logic [ID_WIDTH-1:0]           s_axi_b_bid     = '{default:'0};
+    logic [1:0]                    s_axi_b_bresp   = '{default:'0};
+    logic                          s_axi_b_bvalid  = '{default:'0};
+    logic                          s_axi_b_bready  = '{default:'0};
              
     logic [AXI_RAM_DATA_WIDTH-1:0] vector [AXI_RAM_WORDS_PER_ROW-1:0] = '{default:'0};
     
@@ -286,114 +285,103 @@ module tb_accelerator;
     task axi_write_burst(
         input logic [ADDR_WIDTH-1:0] addr, 
         input int len, 
-        input int vec_offset,
-        input int glob_inst
+        input int vec_offset
     );
         integer k, idx;
         begin
-            automatic int inst = glob_inst;
-
             // Write address
-            s_axi_b_awaddr[inst]  = addr;
-            s_axi_b_awlen[inst]   = len - 1;
-            s_axi_b_awsize[inst]  = $clog2(AXI_RAM_STRB_WIDTH);
-            s_axi_b_awburst[inst] = 1;
-            s_axi_b_awvalid[inst] = 1;
+            s_axi_b_awaddr  = addr;
+            s_axi_b_awlen   = len - 1;
+            s_axi_b_awsize  = $clog2(AXI_RAM_STRB_WIDTH);
+            s_axi_b_awburst = 1;
+            s_axi_b_awvalid = 1;
             
-            $display("\n[AXI WRITE] Instance %0d: Starting burst write", inst);
+            $display("\n[AXI WRITE] Starting burst write");
             $display("[AXI WRITE]   Address    = 0x%08h", addr);
             $display("[AXI WRITE]   Burst Len  = %0d (beats)", len);
-            $display("[AXI WRITE]   Beat Size  = %0d bytes", (1 << s_axi_b_awsize[inst]));
-            $display("[AXI WRITE]   Total Size = %0d bytes", len * (1 << s_axi_b_awsize[inst]));
+            $display("[AXI WRITE]   Beat Size  = %0d bytes", (1 << s_axi_b_awsize));
+            $display("[AXI WRITE]   Total Size = %0d bytes", len * (1 << s_axi_b_awsize));
 
-            @(posedge clk iff (s_axi_b_awready[inst] && s_axi_b_awvalid[inst]));
-            s_axi_b_awvalid[inst] = 0;
-            $display("[AXI WRITE] Instance %0d: AW handshake done", inst);
+            @(posedge clk iff (s_axi_b_awready && s_axi_b_awvalid));
+            s_axi_b_awvalid = 0;
+            $display("[AXI WRITE] AW handshake done");
                 
             // Write data
             for (k = 0; k < len; k++) begin
                 idx = k + vec_offset;
-                $display("[AXI WRITE] Instance %0d: Writing beat %0d: data = %h (vector[%0d])", inst, k, vector[idx], idx);
-                s_axi_b_wdata[inst] = vector[idx];
-                s_axi_b_wstrb[inst] = {AXI_RAM_STRB_WIDTH{1'b1}};
-                s_axi_b_wvalid[inst] = 1;
-                s_axi_b_wlast[inst] = (k == len-1);
+                $display("[AXI WRITE] Writing beat %0d: data = %h (vector[%0d])", k, vector[idx], idx);
+                s_axi_b_wdata = vector[idx];
+                s_axi_b_wstrb = {AXI_RAM_STRB_WIDTH{1'b1}};
+                s_axi_b_wvalid = 1;
+                s_axi_b_wlast = (k == len-1);
                 
-                @(posedge clk iff (s_axi_b_wready[inst] && s_axi_b_wvalid[inst]));
-                s_axi_b_wvalid[inst] = 0;
+                @(posedge clk iff (s_axi_b_wready && s_axi_b_wvalid));
+                s_axi_b_wvalid = 0;
             end
-            s_axi_b_wvalid[inst] = 0;
-            s_axi_b_wlast[inst] = 0;
-            $display("[AXI WRITE] Instance %0d: Data phase complete", inst);
+            s_axi_b_wvalid = 0;
+            s_axi_b_wlast = 0;
+            $display("[AXI WRITE] Data phase complete");
                     
             // Write response
-            s_axi_b_bready[inst] = 1;
-            @(posedge clk iff (s_axi_b_bvalid[inst] && s_axi_b_bready[inst]));
-            s_axi_b_bready[inst] = 0;
-            $display("[AXI WRITE] Instance %0d: Received B response", inst);
+            s_axi_b_bready = 1;
+            @(posedge clk iff (s_axi_b_bvalid && s_axi_b_bready));
+            s_axi_b_bready = 0;
+            $display("[AXI WRITE] Received B response");
             
             // Reset
-            s_axi_b_awvalid[inst] = 0;
-            s_axi_b_wvalid[inst]  = 0;
-            s_axi_b_bready[inst]  = 0;
-            s_axi_b_awid[inst]    = 0;
-            s_axi_b_awlock[inst]  = 0;
-            s_axi_b_awcache[inst] = 0;
-            s_axi_b_awprot[inst]  = 0;
-            s_axi_b_wlast[inst]   = 0;
-            s_axi_b_wstrb[inst]   = {AXI_RAM_STRB_WIDTH{1'b1}};
-            $display("[AXI WRITE] Instance %0d: Burst write complete\n", inst);
+            s_axi_b_awvalid = 0;
+            s_axi_b_wvalid  = 0;
+            s_axi_b_bready  = 0;
+            s_axi_b_awid    = 0;
+            s_axi_b_awlock  = 0;
+            s_axi_b_awcache = 0;
+            s_axi_b_awprot  = 0;
+            s_axi_b_wlast   = 0;
+            s_axi_b_wstrb   = {AXI_RAM_STRB_WIDTH{1'b1}};
+            $display("[AXI WRITE] Burst write complete\n");
         end
     endtask
     
-    localparam [ADDR_WIDTH-1:0] BASE_ADDR = { {(ADDR_WIDTH-32){1'b0}}, 32'h8000_0000 };
-    localparam [ADDR_WIDTH-1:0] STRIDE    = { {(ADDR_WIDTH-32){1'b0}}, 32'h1000_0000 };
-
     // Instantiate DUT
-    generate
-        for (genvar inst = 0; inst < NUM_ACCEL_INST; inst++) begin : gen_accel
-            localparam int base_idx = inst * CHANNELS_PER_INST;
+    accelerator #(
+        .ARCH_TYPE(ARCH_TYPE),
+        .PROFILE(0),
+        .DATA_WIDTH(DATA_WIDTH),
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .ID_WIDTH(ID_WIDTH),
+        .ELEMENT_WIDTH(ELEMENT_WIDTH),
+        .ELEMENTS_PER_ROW(ELEMENTS_PER_ROW_PADDED),
+        .NUM_ROWS(NUM_ROWS),
+        .NUM_CHANNELS(NUM_CHANNELS),
+        .AXI_RAM_DATA_WIDTH(AXI_RAM_DATA_WIDTH),
+        .AXI_RAM_BASE_ADDR(AXI_RAM_BASE_ADDR)
+    ) dut (
+        .clk(clk), 
+        .rstn(rstn),
+        .s_axil_aclk(clk),
+        .s_axil_aresetn(rstn),
         
-            accelerator #(
-                .ARCH_TYPE(ARCH_TYPE),
-                .DATA_WIDTH(DATA_WIDTH),
-                .ADDR_WIDTH(ADDR_WIDTH),
-                .ID_WIDTH(ID_WIDTH),
-                .ELEMENT_WIDTH(ELEMENT_WIDTH),
-                .ELEMENTS_PER_ROW(ELEMENTS_PER_ROW_PADDED),
-                .NUM_ROWS(NUM_ROWS),
-                .NUM_CHANNELS(CHANNELS_PER_INST),
-                .AXI_RAM_DATA_WIDTH(AXI_RAM_DATA_WIDTH),
-                .AXI_RAM_BASE_ADDR(BASE_ADDR + STRIDE * inst)
-            ) dut (
-                .clk(clk), 
-                .rstn(rstn),
-                .s_axil_aclk(clk),
-                .s_axil_aresetn(rstn),
-                
-                `GET_CHANNELS
-                .s_axi_b_awid      (s_axi_b_awid   [inst]),
-                .s_axi_b_awaddr    (s_axi_b_awaddr [inst]),
-                .s_axi_b_awlen     (s_axi_b_awlen  [inst]),
-                .s_axi_b_awsize    (s_axi_b_awsize [inst]),
-                .s_axi_b_awburst   (s_axi_b_awburst[inst]),
-                .s_axi_b_awlock    (s_axi_b_awlock [inst]),
-                .s_axi_b_awcache   (s_axi_b_awcache[inst]),
-                .s_axi_b_awprot    (s_axi_b_awprot [inst]),
-                .s_axi_b_awvalid   (s_axi_b_awvalid[inst]),
-                .s_axi_b_awready   (s_axi_b_awready[inst]),
-                .s_axi_b_wdata     (s_axi_b_wdata  [inst]),
-                .s_axi_b_wstrb     (s_axi_b_wstrb  [inst]),
-                .s_axi_b_wlast     (s_axi_b_wlast  [inst]),
-                .s_axi_b_wvalid    (s_axi_b_wvalid [inst]),
-                .s_axi_b_wready    (s_axi_b_wready [inst]),
-                .s_axi_b_bid       (s_axi_b_bid    [inst]),
-                .s_axi_b_bresp     (s_axi_b_bresp  [inst]),
-                .s_axi_b_bvalid    (s_axi_b_bvalid [inst]),
-                .s_axi_b_bready    (s_axi_b_bready [inst])
-            );
-        end
-    endgenerate
+        `GET_CHANNELS
+        .s_axi_b_awid      (s_axi_b_awid   ),
+        .s_axi_b_awaddr    (s_axi_b_awaddr ),
+        .s_axi_b_awlen     (s_axi_b_awlen  ),
+        .s_axi_b_awsize    (s_axi_b_awsize ),
+        .s_axi_b_awburst   (s_axi_b_awburst),
+        .s_axi_b_awlock    (s_axi_b_awlock ),
+        .s_axi_b_awcache   (s_axi_b_awcache),
+        .s_axi_b_awprot    (s_axi_b_awprot ),
+        .s_axi_b_awvalid   (s_axi_b_awvalid),
+        .s_axi_b_awready   (s_axi_b_awready),
+        .s_axi_b_wdata     (s_axi_b_wdata  ),
+        .s_axi_b_wstrb     (s_axi_b_wstrb  ),
+        .s_axi_b_wlast     (s_axi_b_wlast  ),
+        .s_axi_b_wvalid    (s_axi_b_wvalid ),
+        .s_axi_b_wready    (s_axi_b_wready ),
+        .s_axi_b_bid       (s_axi_b_bid    ),
+        .s_axi_b_bresp     (s_axi_b_bresp  ),
+        .s_axi_b_bvalid    (s_axi_b_bvalid ),
+        .s_axi_b_bready    (s_axi_b_bready )
+    );
     
     elem_t a_values [NUM_CHANNELS][ELEMENTS_PER_ROW_PADDED];
     elem_t b_values [ELEMENTS_PER_ROW_PADDED];
@@ -459,34 +447,28 @@ module tb_accelerator;
         end
         
         // Write vector to BRAM
-        for (int i = 0; i < NUM_ACCEL_INST; i++) begin
-            base_addr = BASE_ADDR + STRIDE * i;
-                      
-            for (int j = 0; j < NUM_RAM_PARTITIONS; j++) begin
-                part_base = base_addr + j * PARTITION_ALIGN;
-                vec_base_offset = j * AXI_RAM_WORDS_PER_PARTITION;
-                                
-                for (int k = 0; k < num_full_bursts; k++) begin
-                    automatic int unsigned word_off = k * MAX_BURST_LEN;
-                    burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
-                    axi_write_burst(
-                        burst_offset,
-                        MAX_BURST_LEN,
-                        vec_base_offset + word_off,
-                        i
-                    );
-                end
-                
-                if (final_burst_len > 0) begin
-                    automatic int unsigned word_off = num_full_bursts * MAX_BURST_LEN;
-                    burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
-                    axi_write_burst(
-                        burst_offset,
-                        final_burst_len,
-                        vec_base_offset + word_off,
-                        i
-                    );
-                end
+        for (int j = 0; j < NUM_RAM_PARTITIONS; j++) begin
+            part_base = AXI_RAM_BASE_ADDR + j * PARTITION_ALIGN;
+            vec_base_offset = j * AXI_RAM_WORDS_PER_PARTITION;
+                            
+            for (int k = 0; k < num_full_bursts; k++) begin
+                automatic int unsigned word_off = k * MAX_BURST_LEN;
+                burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
+                axi_write_burst(
+                    burst_offset,
+                    MAX_BURST_LEN,
+                    vec_base_offset + word_off
+                );
+            end
+            
+            if (final_burst_len > 0) begin
+                automatic int unsigned word_off = num_full_bursts * MAX_BURST_LEN;
+                burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
+                axi_write_burst(
+                    burst_offset,
+                    final_burst_len,
+                    vec_base_offset + word_off
+                );
             end
         end
                 
@@ -503,6 +485,7 @@ module tb_accelerator;
     end
                 
     // Parallel channel drivers
+    int finished_count = 0;
     generate
         for (genvar ch = 0; ch < NUM_CHANNELS; ch++) begin : channel_driver
             initial begin                
@@ -583,7 +566,6 @@ module tb_accelerator;
     endgenerate
     
     // Finish once all outputs are received
-    int finished_count = 0;
     initial begin
         wait(start_transfer);
     

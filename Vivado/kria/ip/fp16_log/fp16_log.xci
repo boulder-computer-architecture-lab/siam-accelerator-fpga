@@ -37,7 +37,7 @@
         "C_Has_DIVIDE_BY_ZERO": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
         "C_Has_ACCUM_OVERFLOW": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
         "C_Has_ACCUM_INPUT_OVERFLOW": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
-        "Has_A_TLAST": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
+        "Has_A_TLAST": [ { "value": "true", "value_src": "user", "resolve_type": "user", "format": "bool", "usage": "all" } ],
         "Has_A_TUSER": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
         "A_TUSER_Width": [ { "value": "1", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "Has_B_TLAST": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
@@ -49,7 +49,7 @@
         "Has_OPERATION_TLAST": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
         "Has_OPERATION_TUSER": [ { "value": "false", "resolve_type": "user", "format": "bool", "usage": "all" } ],
         "OPERATION_TUSER_Width": [ { "value": "1", "resolve_type": "user", "format": "long", "usage": "all" } ],
-        "RESULT_TLAST_Behv": [ { "value": "Null", "resolve_type": "user", "usage": "all" } ]
+        "RESULT_TLAST_Behv": [ { "value": "Pass_A_TLAST", "value_src": "user", "resolve_type": "user", "usage": "all" } ]
       },
       "model_parameters": {
         "C_XDEVICEFAMILY": [ { "value": "zynquplus", "resolve_type": "generated", "usage": "all" } ],
@@ -105,7 +105,7 @@
         "C_HAS_ARESETN": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_THROTTLE_SCHEME": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_HAS_A_TUSER": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
-        "C_HAS_A_TLAST": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
+        "C_HAS_A_TLAST": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_HAS_B": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_HAS_B_TUSER": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_HAS_B_TLAST": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
@@ -116,8 +116,8 @@
         "C_HAS_OPERATION_TUSER": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_HAS_OPERATION_TLAST": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_HAS_RESULT_TUSER": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
-        "C_HAS_RESULT_TLAST": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
-        "C_TLAST_RESOLUTION": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
+        "C_HAS_RESULT_TLAST": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
+        "C_TLAST_RESOLUTION": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_A_TDATA_WIDTH": [ { "value": "16", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_A_TUSER_WIDTH": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_B_TDATA_WIDTH": [ { "value": "16", "resolve_type": "generated", "format": "long", "usage": "all" } ],
@@ -161,9 +161,11 @@
         "s_axis_a_tvalid": [ { "direction": "in", "driver_value": "0x0" } ],
         "s_axis_a_tready": [ { "direction": "out", "driver_value": "0x0" } ],
         "s_axis_a_tdata": [ { "direction": "in", "size_left": "15", "size_right": "0", "driver_value": "0" } ],
+        "s_axis_a_tlast": [ { "direction": "in", "driver_value": "0x0" } ],
         "m_axis_result_tvalid": [ { "direction": "out", "driver_value": "0x0" } ],
         "m_axis_result_tready": [ { "direction": "in", "driver_value": "0x0" } ],
-        "m_axis_result_tdata": [ { "direction": "out", "size_left": "15", "size_right": "0", "driver_value": "0" } ]
+        "m_axis_result_tdata": [ { "direction": "out", "size_left": "15", "size_right": "0", "driver_value": "0" } ],
+        "m_axis_result_tlast": [ { "direction": "out", "driver_value": "0x0" } ]
       },
       "interfaces": {
         "S_AXIS_A": {
@@ -171,14 +173,14 @@
           "abstraction_type": "xilinx.com:interface:axis_rtl:1.0",
           "mode": "slave",
           "parameters": {
-            "TDATA_NUM_BYTES": [ { "value": "8", "value_src": "auto", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
+            "TDATA_NUM_BYTES": [ { "value": "2", "value_src": "auto", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TDEST_WIDTH": [ { "value": "0", "value_src": "constant", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TID_WIDTH": [ { "value": "0", "value_src": "constant", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TUSER_WIDTH": [ { "value": "0", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "HAS_TREADY": [ { "value": "1", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "HAS_TSTRB": [ { "value": "0", "value_src": "constant", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "HAS_TKEEP": [ { "value": "0", "value_src": "constant", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
-            "HAS_TLAST": [ { "value": "0", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
+            "HAS_TLAST": [ { "value": "1", "value_src": "auto", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "FREQ_HZ": [ { "value": "100000000", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "PHASE": [ { "value": "0.0", "resolve_type": "generated", "format": "float", "is_ips_inferred": true, "is_static_object": false } ],
             "CLK_DOMAIN": [ { "value": "", "resolve_type": "generated", "is_ips_inferred": true, "is_static_object": false } ],
@@ -187,6 +189,7 @@
           },
           "port_maps": {
             "TDATA": [ { "physical_name": "s_axis_a_tdata" } ],
+            "TLAST": [ { "physical_name": "s_axis_a_tlast" } ],
             "TREADY": [ { "physical_name": "s_axis_a_tready" } ],
             "TVALID": [ { "physical_name": "s_axis_a_tvalid" } ]
           }
@@ -235,14 +238,14 @@
           "abstraction_type": "xilinx.com:interface:axis_rtl:1.0",
           "mode": "master",
           "parameters": {
-            "TDATA_NUM_BYTES": [ { "value": "8", "value_src": "auto", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
+            "TDATA_NUM_BYTES": [ { "value": "2", "value_src": "auto", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TDEST_WIDTH": [ { "value": "0", "value_src": "constant", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TID_WIDTH": [ { "value": "0", "value_src": "constant", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TUSER_WIDTH": [ { "value": "0", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "HAS_TREADY": [ { "value": "1", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "HAS_TSTRB": [ { "value": "0", "value_src": "constant", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "HAS_TKEEP": [ { "value": "0", "value_src": "constant", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
-            "HAS_TLAST": [ { "value": "0", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
+            "HAS_TLAST": [ { "value": "1", "value_src": "auto", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "FREQ_HZ": [ { "value": "100000000", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "PHASE": [ { "value": "0.0", "resolve_type": "generated", "format": "float", "is_ips_inferred": true, "is_static_object": false } ],
             "CLK_DOMAIN": [ { "value": "", "resolve_type": "generated", "is_ips_inferred": true, "is_static_object": false } ],
@@ -251,6 +254,7 @@
           },
           "port_maps": {
             "TDATA": [ { "physical_name": "m_axis_result_tdata" } ],
+            "TLAST": [ { "physical_name": "m_axis_result_tlast" } ],
             "TREADY": [ { "physical_name": "m_axis_result_tready" } ],
             "TVALID": [ { "physical_name": "m_axis_result_tvalid" } ]
           }

@@ -31,15 +31,15 @@ module pow #(
     // using the property that 
     // x^y = e^(y*ln(x))
 
-    wire log_out_tdata;
-    wire log_out_tvalid;
-    wire log_out_tready;
-    wire log_out_tlast;
+    wire [DATA_WIDTH-1:0] log_out_tdata;
+    wire                  log_out_tvalid;
+    wire                  log_out_tready;
+    wire                  log_out_tlast;
 
-    wire mult_out_tdata;
-    wire mult_out_tvalid;
-    wire mult_out_tready;
-    wire mult_out_tlast;
+    wire [DATA_WIDTH-1:0] mult_out_tdata;
+    wire                  mult_out_tvalid;
+    wire                  mult_out_tready;
+    wire                  mult_out_tlast;
 
     generate
         if (DATA_WIDTH == 64) begin

@@ -1,13 +1,13 @@
 {
   "schema": "xilinx.com:schema:json_instance:1.0",
   "ip_inst": {
-    "xci_name": "axis_wconv_16to256",
+    "xci_name": "axis_wconv32to256",
     "component_reference": "xilinx.com:ip:axis_dwidth_converter:1.1",
     "ip_revision": "28",
-    "gen_directory": "../../build/kria-accelerator.gen/sources_1/ip/axis_wconv_16to256",
+    "gen_directory": "../../build/kria-accelerator.gen/sources_1/ip/axis_wconv32to256",
     "parameters": {
       "component_parameters": {
-        "S_TDATA_NUM_BYTES": [ { "value": "2", "value_src": "user", "resolve_type": "user", "format": "long", "usage": "all" } ],
+        "S_TDATA_NUM_BYTES": [ { "value": "4", "value_src": "user", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "M_TDATA_NUM_BYTES": [ { "value": "32", "value_src": "user", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "TID_WIDTH": [ { "value": "0", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "TDEST_WIDTH": [ { "value": "0", "resolve_type": "user", "format": "long", "usage": "all" } ],
@@ -18,11 +18,11 @@
         "HAS_TKEEP": [ { "value": "0", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "HAS_ACLKEN": [ { "value": "0", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "HAS_MI_TKEEP": [ { "value": "1", "resolve_type": "user", "format": "long", "usage": "all" } ],
-        "Component_Name": [ { "value": "axis_wconv_16to256", "resolve_type": "user", "usage": "all" } ]
+        "Component_Name": [ { "value": "axis_wconv32to256", "resolve_type": "user", "usage": "all" } ]
       },
       "model_parameters": {
         "C_FAMILY": [ { "value": "zynquplus", "resolve_type": "generated", "usage": "all" } ],
-        "C_S_AXIS_TDATA_WIDTH": [ { "value": "16", "resolve_type": "generated", "format": "long", "usage": "all" } ],
+        "C_S_AXIS_TDATA_WIDTH": [ { "value": "32", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_M_AXIS_TDATA_WIDTH": [ { "value": "256", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_AXIS_TID_WIDTH": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_AXIS_TDEST_WIDTH": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
@@ -47,7 +47,7 @@
         "IPCONTEXT": [ { "value": "IP_Flow" } ],
         "IPREVISION": [ { "value": "28" } ],
         "MANAGED": [ { "value": "TRUE" } ],
-        "OUTPUTDIR": [ { "value": "../../build/kria-accelerator.gen/sources_1/ip/axis_wconv_16to256" } ],
+        "OUTPUTDIR": [ { "value": "../../build/kria-accelerator.gen/sources_1/ip/axis_wconv32to256" } ],
         "SELECTEDSIMMODEL": [ { "value": "" } ],
         "SHAREDDIR": [ { "value": "." } ],
         "SWVERSION": [ { "value": "2023.2" } ],
@@ -60,7 +60,7 @@
         "aresetn": [ { "direction": "in" } ],
         "s_axis_tvalid": [ { "direction": "in", "driver_value": "0x0" } ],
         "s_axis_tready": [ { "direction": "out" } ],
-        "s_axis_tdata": [ { "direction": "in", "size_left": "15", "size_right": "0", "driver_value": "0x0000" } ],
+        "s_axis_tdata": [ { "direction": "in", "size_left": "31", "size_right": "0", "driver_value": "0x00000000" } ],
         "s_axis_tlast": [ { "direction": "in", "driver_value": "0x1" } ],
         "m_axis_tvalid": [ { "direction": "out" } ],
         "m_axis_tready": [ { "direction": "in", "driver_value": "0x1" } ],
@@ -74,7 +74,7 @@
           "abstraction_type": "xilinx.com:interface:axis_rtl:1.0",
           "mode": "slave",
           "parameters": {
-            "TDATA_NUM_BYTES": [ { "value": "2", "value_src": "auto", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
+            "TDATA_NUM_BYTES": [ { "value": "4", "value_src": "auto", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TDEST_WIDTH": [ { "value": "0", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TID_WIDTH": [ { "value": "0", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],
             "TUSER_WIDTH": [ { "value": "0", "resolve_type": "generated", "format": "long", "is_ips_inferred": true, "is_static_object": false } ],

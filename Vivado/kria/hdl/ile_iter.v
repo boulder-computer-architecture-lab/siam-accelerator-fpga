@@ -20,10 +20,6 @@ module ile_iter #(
     parameter WORDS_PER_ROW     = ELEMENTS_PER_ROW / ELEMENTS_PER_WORD,
     parameter ROWS_PER_CHANNEL  = NUM_ROWS / NUM_CHANNELS,
     
-    parameter AXI_B_DATA_WIDTH = ELEMENT_WIDTH,
-    parameter AXI_B_BASE_ADDR  = 64'h7000_0000,
-    parameter AXI_B_STRB_WIDTH = AXI_B_DATA_WIDTH / 8,
-
     parameter MATRIX_DATA_WIDTH = DATA_WIDTH,
     parameter MATRIX_STRB_WIDTH = MATRIX_DATA_WIDTH / 8,
 
@@ -197,7 +193,7 @@ module ile_iter #(
     wire                         ram_m_axi_bready  [MAX_CH-1:0];
     
     wire [MATRIX_ID_WIDTH-1:0]   ram_m_axi_arid    [MAX_CH-1:0];
-    wire [ADDR_WIDTH-1:0]        ram_m_axi_araddr  [MAX_CH-1:0];
+    wire [MATRIX_ADDR_WIDTH-1:0] ram_m_axi_araddr  [MAX_CH-1:0];
     wire [7:0]                   ram_m_axi_arlen   [MAX_CH-1:0];
     wire [2:0]                   ram_m_axi_arsize  [MAX_CH-1:0];
     wire [1:0]                   ram_m_axi_arburst [MAX_CH-1:0];
@@ -426,14 +422,18 @@ module ile_iter #(
     //          AXI_B SHARED BUFFER
     // ========================================
 
+    localparam AXI_B_DATA_WIDTH = MVM_RAM_DATA_WIDTH;
+    localparam AXI_B_STRB_WIDTH = AXI_B_DATA_WIDTH / 8;
+
     localparam AXI_B_NUM_REGIONS      = 3;
-    localparam AXI_B_WORDS_PER_REGION = ELEMENTS_PER_ROW;
+    localparam AXI_B_WORDS_PER_REGION = ELEMENTS_PER_ROW / (AXI_B_DATA_WIDTH / ELEMENT_WIDTH);
     localparam AXI_B_BYTES_PER_REGION = AXI_B_WORDS_PER_REGION * AXI_B_STRB_WIDTH;
     localparam AXI_B_TOTAL_WORDS      = AXI_B_WORDS_PER_REGION * AXI_B_NUM_REGIONS;
     localparam AXI_B_TOTAL_BYTES      = AXI_B_BYTES_PER_REGION * AXI_B_NUM_REGIONS;
     localparam AXI_B_ADDR_WIDTH       = $clog2(AXI_B_TOTAL_BYTES);
 
-    wire [ADDR_WIDTH-1:0]       axi_b_ram_awaddr;
+    wire [ID_WIDTH-1:0]         axi_b_ram_awid;
+    wire [AXI_B_ADDR_WIDTH-1:0] axi_b_ram_awaddr;
     wire [7:0]                  axi_b_ram_awlen;
     wire [2:0]                  axi_b_ram_awsize;
     wire [1:0]                  axi_b_ram_awburst;
@@ -451,6 +451,7 @@ module ile_iter #(
     wire                        axi_b_ram_wvalid;
     wire                        axi_b_ram_wready;
 
+    wire [ID_WIDTH-1:0]         axi_b_ram_bid;
     wire [1:0]                  axi_b_ram_bresp;
     wire                        axi_b_ram_bvalid;
     wire                        axi_b_ram_bready;
@@ -473,162 +474,30 @@ module ile_iter #(
     wire                        axi_b_ram_rvalid;
     wire                        axi_b_ram_rready;
 
-    generate
-        if (ELEMENT_WIDTH == 64) begin : axi_wconv64_gen
-            axi_wconv256to64 axi_wconv_inst (
-                .s_axi_aclk   (clk),
-                .s_axi_aresetn(rstn),
+    // Send write signals directly to shared buffer
+    assign axi_b_ram_awid     = s_axi_b_awid;
+    assign axi_b_ram_awaddr   = s_axi_b_awaddr[AXI_B_ADDR_WIDTH-1:0];
+    assign axi_b_ram_awlen    = s_axi_b_awlen;
+    assign axi_b_ram_awsize   = s_axi_b_awsize;
+    assign axi_b_ram_awburst  = s_axi_b_awburst;
+    assign axi_b_ram_awlock   = s_axi_b_awlock;
+    assign axi_b_ram_awregion = 4'b0;
+    assign axi_b_ram_awqos    = 4'b0;
+    assign axi_b_ram_awcache  = s_axi_b_awcache;
+    assign axi_b_ram_awprot   = s_axi_b_awprot;
+    assign axi_b_ram_awvalid  = s_axi_b_awvalid;
+    assign s_axi_b_awready    = axi_b_ram_awready;
 
-                .s_axi_awid    (s_axi_b_awid   ),
-                .s_axi_awaddr  (s_axi_b_awaddr ),
-                .s_axi_awlen   (s_axi_b_awlen  ),
-                .s_axi_awsize  (s_axi_b_awsize ),
-                .s_axi_awburst (s_axi_b_awburst),
-                .s_axi_awlock  (s_axi_b_awlock ),
-                .s_axi_awcache (s_axi_b_awcache),
-                .s_axi_awprot  (s_axi_b_awprot ),
-                .s_axi_awregion(4'b0),
-                .s_axi_awqos   (4'b0),
-                .s_axi_awvalid (s_axi_b_awvalid),
-                .s_axi_awready (s_axi_b_awready),
+    assign axi_b_ram_wdata    = s_axi_b_wdata;
+    assign axi_b_ram_wstrb    = s_axi_b_wstrb;
+    assign axi_b_ram_wlast    = s_axi_b_wlast;
+    assign axi_b_ram_wvalid   = s_axi_b_wvalid;
+    assign s_axi_b_wready     = axi_b_ram_wready;
 
-                .s_axi_wdata   (s_axi_b_wdata ),
-                .s_axi_wstrb   (s_axi_b_wstrb ),
-                .s_axi_wlast   (s_axi_b_wlast ),
-                .s_axi_wvalid  (s_axi_b_wvalid),
-                .s_axi_wready  (s_axi_b_wready),
-
-                .s_axi_bid     (s_axi_b_bid   ),
-                .s_axi_bresp   (s_axi_b_bresp ),
-                .s_axi_bvalid  (s_axi_b_bvalid),
-                .s_axi_bready  (s_axi_b_bready),
-
-                .m_axi_awaddr  (axi_b_ram_awaddr  ),
-                .m_axi_awlen   (axi_b_ram_awlen   ),
-                .m_axi_awsize  (axi_b_ram_awsize  ),
-                .m_axi_awburst (axi_b_ram_awburst ),
-                .m_axi_awlock  (axi_b_ram_awlock  ),
-                .m_axi_awcache (axi_b_ram_awcache ),
-                .m_axi_awprot  (axi_b_ram_awprot  ),
-                .m_axi_awregion(axi_b_ram_awregion),
-                .m_axi_awqos   (axi_b_ram_awqos   ),
-                .m_axi_awvalid (axi_b_ram_awvalid ),
-                .m_axi_awready (axi_b_ram_awready ),
-
-                .m_axi_wdata   (axi_b_ram_wdata ),
-                .m_axi_wstrb   (axi_b_ram_wstrb ),
-                .m_axi_wlast   (axi_b_ram_wlast ),
-                .m_axi_wvalid  (axi_b_ram_wvalid),
-                .m_axi_wready  (axi_b_ram_wready),
-
-                .m_axi_bresp   (axi_b_ram_bresp ),
-                .m_axi_bvalid  (axi_b_ram_bvalid),
-                .m_axi_bready  (axi_b_ram_bready)
-            );
-        end else if (ELEMENT_WIDTH == 32) begin : axi_wconv32_gen
-            axi_wconv256to32 wconv_inst (
-                .s_axi_aclk   (clk),
-                .s_axi_aresetn(rstn),
-
-                .s_axi_awid    (s_axi_b_awid   ),
-                .s_axi_awaddr  (s_axi_b_awaddr ),
-                .s_axi_awlen   (s_axi_b_awlen  ),
-                .s_axi_awsize  (s_axi_b_awsize ),
-                .s_axi_awburst (s_axi_b_awburst),
-                .s_axi_awlock  (s_axi_b_awlock ),
-                .s_axi_awcache (s_axi_b_awcache),
-                .s_axi_awprot  (s_axi_b_awprot ),
-                .s_axi_awregion(4'b0),
-                .s_axi_awqos   (4'b0),
-                .s_axi_awvalid (s_axi_b_awvalid),
-                .s_axi_awready (s_axi_b_awready),
-
-                .s_axi_wdata   (s_axi_b_wdata ),
-                .s_axi_wstrb   (s_axi_b_wstrb ),
-                .s_axi_wlast   (s_axi_b_wlast ),
-                .s_axi_wvalid  (s_axi_b_wvalid),
-                .s_axi_wready  (s_axi_b_wready),
-
-                .s_axi_bid     (s_axi_b_bid   ),
-                .s_axi_bresp   (s_axi_b_bresp ),
-                .s_axi_bvalid  (s_axi_b_bvalid),
-                .s_axi_bready  (s_axi_b_bready),
-
-                .m_axi_awaddr  (axi_b_ram_awaddr  ),
-                .m_axi_awlen   (axi_b_ram_awlen   ),
-                .m_axi_awsize  (axi_b_ram_awsize  ),
-                .m_axi_awburst (axi_b_ram_awburst ),
-                .m_axi_awlock  (axi_b_ram_awlock  ),
-                .m_axi_awcache (axi_b_ram_awcache ),
-                .m_axi_awprot  (axi_b_ram_awprot  ),
-                .m_axi_awregion(axi_b_ram_awregion),
-                .m_axi_awqos   (axi_b_ram_awqos   ),
-                .m_axi_awvalid (axi_b_ram_awvalid ),
-                .m_axi_awready (axi_b_ram_awready ),
-
-                .m_axi_wdata   (axi_b_ram_wdata ),
-                .m_axi_wstrb   (axi_b_ram_wstrb ),
-                .m_axi_wlast   (axi_b_ram_wlast ),
-                .m_axi_wvalid  (axi_b_ram_wvalid),
-                .m_axi_wready  (axi_b_ram_wready),
-
-                .m_axi_bresp   (axi_b_ram_bresp ),
-                .m_axi_bvalid  (axi_b_ram_bvalid),
-                .m_axi_bready  (axi_b_ram_bready)
-            );
-        end else if (ELEMENT_WIDTH == 16) begin : axi_wconv16_gen
-            axi_wconv256to16 wconv_inst (
-                .s_axi_aclk   (clk),
-                .s_axi_aresetn(rstn),
-
-                .s_axi_awid    (s_axi_b_awid   ),
-                .s_axi_awaddr  (s_axi_b_awaddr ),
-                .s_axi_awlen   (s_axi_b_awlen  ),
-                .s_axi_awsize  (s_axi_b_awsize ),
-                .s_axi_awburst (s_axi_b_awburst),
-                .s_axi_awlock  (s_axi_b_awlock ),
-                .s_axi_awcache (s_axi_b_awcache),
-                .s_axi_awprot  (s_axi_b_awprot ),
-                .s_axi_awregion(4'b0),
-                .s_axi_awqos   (4'b0),
-                .s_axi_awvalid (s_axi_b_awvalid),
-                .s_axi_awready (s_axi_b_awready),
-
-                .s_axi_wdata   (s_axi_b_wdata ),
-                .s_axi_wstrb   (s_axi_b_wstrb ),
-                .s_axi_wlast   (s_axi_b_wlast ),
-                .s_axi_wvalid  (s_axi_b_wvalid),
-                .s_axi_wready  (s_axi_b_wready),
-
-                .s_axi_bid     (s_axi_b_bid   ),
-                .s_axi_bresp   (s_axi_b_bresp ),
-                .s_axi_bvalid  (s_axi_b_bvalid),
-                .s_axi_bready  (s_axi_b_bready),
-
-                .m_axi_awaddr  (axi_b_ram_awaddr  ),
-                .m_axi_awlen   (axi_b_ram_awlen   ),
-                .m_axi_awsize  (axi_b_ram_awsize  ),
-                .m_axi_awburst (axi_b_ram_awburst ),
-                .m_axi_awlock  (axi_b_ram_awlock  ),
-                .m_axi_awcache (axi_b_ram_awcache ),
-                .m_axi_awprot  (axi_b_ram_awprot  ),
-                .m_axi_awregion(axi_b_ram_awregion),
-                .m_axi_awqos   (axi_b_ram_awqos   ),
-                .m_axi_awvalid (axi_b_ram_awvalid ),
-                .m_axi_awready (axi_b_ram_awready ),
-
-                .m_axi_wdata   (axi_b_ram_wdata ),
-                .m_axi_wstrb   (axi_b_ram_wstrb ),
-                .m_axi_wlast   (axi_b_ram_wlast ),
-                .m_axi_wvalid  (axi_b_ram_wvalid),
-                .m_axi_wready  (axi_b_ram_wready),
-
-                .m_axi_bresp   (axi_b_ram_bresp ),
-                .m_axi_bvalid  (axi_b_ram_bvalid),
-                .m_axi_bready  (axi_b_ram_bready)
-            );
-        end
-    endgenerate 
+    assign s_axi_b_bid        = axi_b_ram_bid;
+    assign s_axi_b_bresp      = axi_b_ram_bresp;
+    assign s_axi_b_bvalid     = axi_b_ram_bvalid;
+    assign axi_b_ram_bready   = s_axi_b_bready;
 
     axi_ram #(
         .DATA_WIDTH(AXI_B_DATA_WIDTH),
@@ -640,45 +509,45 @@ module ile_iter #(
         .clk(clk),
         .rstn(rstn),
 
-        .s_axi_awid   ({ID_WIDTH{1'b0}}), // wconv doesn't drive ID signals
-        .s_axi_awaddr (axi_b_ram_awaddr[AXI_B_ADDR_WIDTH-1:0]),
-        .s_axi_awlen  (axi_b_ram_awlen),
-        .s_axi_awsize (axi_b_ram_awsize),
+        .s_axi_awid   (axi_b_ram_awid   ),
+        .s_axi_awaddr (axi_b_ram_awaddr ),
+        .s_axi_awlen  (axi_b_ram_awlen  ),
+        .s_axi_awsize (axi_b_ram_awsize ),
         .s_axi_awburst(axi_b_ram_awburst),
-        .s_axi_awlock (axi_b_ram_awlock),
+        .s_axi_awlock (axi_b_ram_awlock ),
         .s_axi_awcache(axi_b_ram_awcache),
-        .s_axi_awprot (axi_b_ram_awprot),
+        .s_axi_awprot (axi_b_ram_awprot ),
         .s_axi_awvalid(axi_b_ram_awvalid),
         .s_axi_awready(axi_b_ram_awready),
 
-        .s_axi_wdata  (axi_b_ram_wdata),
-        .s_axi_wstrb  (axi_b_ram_wstrb),
-        .s_axi_wlast  (axi_b_ram_wlast),
+        .s_axi_wdata  (axi_b_ram_wdata ),
+        .s_axi_wstrb  (axi_b_ram_wstrb ),
+        .s_axi_wlast  (axi_b_ram_wlast ),
         .s_axi_wvalid (axi_b_ram_wvalid),
         .s_axi_wready (axi_b_ram_wready),
 
-        .s_axi_bid    (),
-        .s_axi_bresp  (axi_b_ram_bresp),
+        .s_axi_bid    (axi_b_ram_bid   ),
+        .s_axi_bresp  (axi_b_ram_bresp ),
         .s_axi_bvalid (axi_b_ram_bvalid),
         .s_axi_bready (axi_b_ram_bready),
 
-        .s_axi_arid   (axi_b_ram_arid),
-        .s_axi_araddr (axi_b_ram_araddr),
-        .s_axi_arlen  (axi_b_ram_arlen),
-        .s_axi_arsize (axi_b_ram_arsize),
+        .s_axi_arid   (axi_b_ram_arid   ),
+        .s_axi_araddr (axi_b_ram_araddr ),
+        .s_axi_arlen  (axi_b_ram_arlen  ),
+        .s_axi_arsize (axi_b_ram_arsize ),
         .s_axi_arburst(axi_b_ram_arburst),
-        .s_axi_arlock (axi_b_ram_arlock),
+        .s_axi_arlock (axi_b_ram_arlock ),
         .s_axi_arcache(axi_b_ram_arcache),
-        .s_axi_arprot (axi_b_ram_arprot),
+        .s_axi_arprot (axi_b_ram_arprot ),
         .s_axi_arvalid(axi_b_ram_arvalid),
         .s_axi_arready(axi_b_ram_arready),
 
-        .s_axi_rid    (axi_b_ram_rid),
-        .s_axi_rdata  (axi_b_ram_rdata),
-        .s_axi_rresp  (axi_b_ram_rresp),
-        .s_axi_rlast  (axi_b_ram_rlast),
-        .s_axi_rvalid (axi_b_ram_rvalid),
-        .s_axi_rready (axi_b_ram_rready)
+        .s_axi_rid    (axi_b_ram_rid    ),
+        .s_axi_rdata  (axi_b_ram_rdata  ),
+        .s_axi_rresp  (axi_b_ram_rresp  ),
+        .s_axi_rlast  (axi_b_ram_rlast  ),
+        .s_axi_rvalid (axi_b_ram_rvalid ),
+        .s_axi_rready (axi_b_ram_rready )
     );
 
     // ========================================
@@ -788,36 +657,88 @@ module ile_iter #(
         .enable(1'b1)
     );
 
+    // 3.  AXI_B_DATA_WIDTH -> ELEMENT_WIDTH
+    wire [ELEMENT_WIDTH-1:0] b_wconv_axis_tdata;
+    wire                     b_wconv_axis_tvalid;
+    wire                     b_wconv_axis_tready;
+    wire                     b_wconv_axis_tlast;
+
+    generate
+        if (ELEMENT_WIDTH == 64) begin: axis_wconv_down64_gen
+            axis_wconv256to64 wconv_down_inst (
+                .aclk(clk), .aresetn(rstn),
+
+                .s_axis_tdata (b_dma_axis_tdata ),
+                .s_axis_tvalid(b_dma_axis_tvalid),
+                .s_axis_tready(b_dma_axis_tready),
+                .s_axis_tlast (b_dma_axis_tlast ),
+
+                .m_axis_tdata (b_wconv_axis_tdata ),
+                .m_axis_tvalid(b_wconv_axis_tvalid),
+                .m_axis_tready(b_wconv_axis_tready),
+                .m_axis_tlast (b_wconv_axis_tlast )
+            );
+        end else if (ELEMENT_WIDTH == 32) begin: axis_wconv_down32_gen
+            axis_wconv256to32 wconv_down_inst (
+                .aclk(clk), .aresetn(rstn),
+
+                .s_axis_tdata (b_dma_axis_tdata ),
+                .s_axis_tvalid(b_dma_axis_tvalid),
+                .s_axis_tready(b_dma_axis_tready),
+                .s_axis_tlast (b_dma_axis_tlast ),
+
+                .m_axis_tdata (b_wconv_axis_tdata ),
+                .m_axis_tvalid(b_wconv_axis_tvalid),
+                .m_axis_tready(b_wconv_axis_tready),
+                .m_axis_tlast (b_wconv_axis_tlast )
+            );
+        end else if (ELEMENT_WIDTH == 16) begin: axis_wconv_down16_gen
+            axis_wconv256to16 wconv_down_inst (
+                .aclk(clk), .aresetn(rstn),
+
+                .s_axis_tdata (b_dma_axis_tdata ),
+                .s_axis_tvalid(b_dma_axis_tvalid),
+                .s_axis_tready(b_dma_axis_tready),
+                .s_axis_tlast (b_dma_axis_tlast ),
+
+                .m_axis_tdata (b_wconv_axis_tdata ),
+                .m_axis_tvalid(b_wconv_axis_tvalid),
+                .m_axis_tready(b_wconv_axis_tready),
+                .m_axis_tlast (b_wconv_axis_tlast )
+            );
+        end
+    endgenerate 
+
     // Output routing
-    wire [AXI_B_DATA_WIDTH-1:0] vec_init_axis_tdata;
-    wire                        vec_init_axis_tvalid;
-    wire                        vec_init_axis_tready;
-    wire                        vec_init_axis_tlast;
+    wire [ELEMENT_WIDTH-1:0] vec_init_axis_tdata;
+    wire                     vec_init_axis_tvalid;
+    wire                     vec_init_axis_tready;
+    wire                     vec_init_axis_tlast;
 
-    wire [AXI_B_DATA_WIDTH-1:0] uhat_inner_axis_tdata;
-    wire                        uhat_inner_axis_tvalid;
-    wire                        uhat_inner_axis_tready;
-    wire                        uhat_inner_axis_tlast;
+    wire [ELEMENT_WIDTH-1:0] uhat_inner_axis_tdata;
+    wire                     uhat_inner_axis_tvalid;
+    wire                     uhat_inner_axis_tready;
+    wire                     uhat_inner_axis_tlast;
 
-    wire [AXI_B_DATA_WIDTH-1:0] int_outer_axis_tdata;
-    wire                        int_outer_axis_tvalid;
-    wire                        int_outer_axis_tready;
-    wire                        int_outer_axis_tlast;
+    wire [ELEMENT_WIDTH-1:0] int_outer_axis_tdata;
+    wire                     int_outer_axis_tvalid;
+    wire                     int_outer_axis_tready;
+    wire                     int_outer_axis_tlast;
 
-    assign vec_init_axis_tdata  = b_dma_axis_tdata;
-    assign vec_init_axis_tvalid = (axi_b_region_sel == REGION_VEC_INIT) ? b_dma_axis_tvalid : 1'b0;
-    assign vec_init_axis_tlast  = b_dma_axis_tlast;
+    assign vec_init_axis_tdata  = b_wconv_axis_tdata;
+    assign vec_init_axis_tvalid = (axi_b_region_sel == REGION_VEC_INIT) ? b_wconv_axis_tvalid : 1'b0;
+    assign vec_init_axis_tlast  = b_wconv_axis_tlast;
     
-    assign int_outer_axis_tdata  = b_dma_axis_tdata;
-    assign int_outer_axis_tvalid = (axi_b_region_sel == REGION_OUTER) ? b_dma_axis_tvalid : 1'b0;
-    assign int_outer_axis_tlast  = b_dma_axis_tlast;
+    assign int_outer_axis_tdata  = b_wconv_axis_tdata;
+    assign int_outer_axis_tvalid = (axi_b_region_sel == REGION_OUTER) ? b_wconv_axis_tvalid : 1'b0;
+    assign int_outer_axis_tlast  = b_wconv_axis_tlast;
     
-    assign uhat_inner_axis_tdata  = b_dma_axis_tdata;
-    assign uhat_inner_axis_tvalid = (axi_b_region_sel == REGION_INNER) ? b_dma_axis_tvalid : 1'b0;
-    assign uhat_inner_axis_tlast  = b_dma_axis_tlast;
+    assign uhat_inner_axis_tdata  = b_wconv_axis_tdata;
+    assign uhat_inner_axis_tvalid = (axi_b_region_sel == REGION_INNER) ? b_wconv_axis_tvalid : 1'b0;
+    assign uhat_inner_axis_tlast  = b_wconv_axis_tlast;
     
-    assign b_dma_axis_tready = (axi_b_region_sel == REGION_VEC_INIT) ? vec_init_axis_tready  :
-                               (axi_b_region_sel == REGION_OUTER   ) ? int_outer_axis_tready : uhat_inner_axis_tready;
+    assign b_wconv_axis_tready = (axi_b_region_sel == REGION_VEC_INIT) ? vec_init_axis_tready  :
+                                 (axi_b_region_sel == REGION_OUTER   ) ? int_outer_axis_tready : uhat_inner_axis_tready;
 
     // ========================================
     //          CONVERGENCE CHECKER
@@ -927,9 +848,10 @@ module ile_iter #(
     // Full dataflow for this section: chk -> pow -> mult -> wconv -> s2mm -> mvm
 
     // 1. pow
-    localparam I_EXP64 = 64'h0000_0000; // TODO: get real value
-    localparam I_EXP32 = 32'h0000_0000; // TODO: get real value
-    localparam I_EXP16 = 16'h0000_0000; // TODO: get real value
+    // i_exp: -5.331512857142856
+    localparam I_EXP64 = 64'hC015_5378_1B3E_8742;
+    localparam I_EXP32 = 32'hC0AA_9BC1;
+    localparam I_EXP16 = 16'hC555;
 
     wire [ELEMENT_WIDTH-1:0] i_exp_tdata;   
     wire                     i_exp_tvalid;
@@ -1043,8 +965,8 @@ module ile_iter #(
     wire                          wconv_axis_tlast;
 
     generate
-        if (ELEMENT_WIDTH == 64) begin: axis_wconv64_gen
-            axis_wconv64to256 wconv_inst (
+        if (ELEMENT_WIDTH == 64) begin: axis_wconv_up64_gen
+            axis_wconv64to256 wconv_up_inst (
                 .aclk(clk), .aresetn(rstn),
 
                 .s_axis_tdata (mult0_axis_tdata),
@@ -1057,8 +979,8 @@ module ile_iter #(
                 .m_axis_tready(wconv_axis_tready),
                 .m_axis_tlast (wconv_axis_tlast)
             );
-        end else if (ELEMENT_WIDTH == 32) begin: axis_wconv32_gen
-            axis_wconv32to256 wconv_inst (
+        end else if (ELEMENT_WIDTH == 32) begin: axis_wconv_up32_gen
+            axis_wconv32to256 wconv_up_inst (
                 .aclk(clk), .aresetn(rstn),
 
                 .s_axis_tdata (mult0_axis_tdata),
@@ -1071,8 +993,8 @@ module ile_iter #(
                 .m_axis_tready(wconv_axis_tready),
                 .m_axis_tlast (wconv_axis_tlast)
             );
-        end else if (ELEMENT_WIDTH == 16) begin: axis_wconv16_gen
-            axis_wconv16to256 wconv_inst (
+        end else if (ELEMENT_WIDTH == 16) begin: axis_wconv_up16_gen
+            axis_wconv16to256 wconv_up_inst (
                 .aclk(clk), .aresetn(rstn),
 
                 .s_axis_tdata (mult0_axis_tdata),
@@ -1256,9 +1178,10 @@ module ile_iter #(
     end
 
     // 2. pow
-    localparam U_EXP64 = 64'h0000_0000; // TODO: get real value
-    localparam U_EXP32 = 32'h0000_0000; // TODO: get real value
-    localparam U_EXP16 = 16'h0000_0000; // TODO: get real value
+    // u_exp: 0.12861221649228258
+    localparam U_EXP64 = 64'h3FC0_765D_77D9_A78B;
+    localparam U_EXP32 = 32'h3E03_B2ED; 
+    localparam U_EXP16 = 16'h301E;
 
     wire [ELEMENT_WIDTH-1:0] pow1_axis_tdata;
     wire                     pow1_axis_tvalid;

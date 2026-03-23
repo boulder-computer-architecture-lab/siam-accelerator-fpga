@@ -464,7 +464,7 @@ module mvm_channel_split #(
         .status_good_frame()
     );
                                           
-    axis_wconv wconv_inst (
+    axis_wconv256to128 wconv_inst (
         .aclk(clk),
         .aresetn(rstn),
 

@@ -29,15 +29,15 @@ module err #(
     // for fp input vectors x and y,
     // returns sum((x_i-y_i)^2)
 
-    wire sub_out_tdata;
-    wire sub_out_tvalid;
-    wire sub_out_tready;
-    wire sub_out_tlast;
+    wire [DATA_WIDTH-1:0] sub_out_tdata;
+    wire                  sub_out_tvalid;
+    wire                  sub_out_tready;
+    wire                  sub_out_tlast;
 
-    wire mult_out_tdata;
-    wire mult_out_tvalid;
-    wire mult_out_tready;
-    wire mult_out_tlast;
+    wire [DATA_WIDTH-1:0] mult_out_tdata;
+    wire                  mult_out_tvalid;
+    wire                  mult_out_tready;
+    wire                  mult_out_tlast;
 
     generate
         if (DATA_WIDTH == 64) begin
