@@ -612,7 +612,7 @@ module ile_iter #(
         .AXIS_USER_ENABLE (0),
         .LEN_WIDTH(AXI_B_DMA_LEN_WIDTH),
         .TAG_WIDTH(AXI_B_DMA_TAG_WIDTH)
-    ) dma (
+    ) dma_b (
         .clk(clk), .rstn(rstn),
     
         .s_axis_read_desc_addr (axi_b_rd_desc_addr),

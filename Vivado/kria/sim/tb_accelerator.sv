@@ -9,40 +9,48 @@ module tb_accelerator;
 
     // --- Config ---
     
+    // Clock frequency
     parameter  real     PCLK0_FREQ_MHZ = 250.0;
     localparam realtime PCLK0_PERIOD_NS = 1000.0 / PCLK0_FREQ_MHZ;
 
-    parameter ARCH_TYPE = 0; // Select accelerator type (0=mvm_split, 1=mvm_sym, 2=ile_iter)
+    // Accelerator type
+    parameter ARCH_TYPE = 2; // (0=mvm_split, 1=mvm_sym, 2=ile_iter)
     
+    // Matrix dimensions
+    parameter int ELEMENTS_PER_ROW = 17048;
+    parameter int NUM_ROWS         = 16;
+
+    // Precision
+    parameter int ELEMENT_WIDTH = 16; // Can be 16, 32, or 64
+
+    // Num iterations
     parameter int NUM_TRANSFERS = 2;
-    parameter int BATCHES_PER_TRANSFER = 2;
+    parameter int BATCHES_PER_TRANSFER = 2; // >1 => Batch each iteration
 
     parameter int DATA_WIDTH = 128; // Max data width for HP ports is 128
     parameter int ADDR_WIDTH = 64;
     parameter int ID_WIDTH   = 8;
     
-    parameter int ELEMENT_WIDTH = 16; // Can be 16, 32, or 64
-    
+    // Num matrix channels
     parameter int NUM_CHANNELS       = 4;
     parameter int NUM_RAM_PARTITIONS = NUM_CHANNELS;
     
-    parameter int ELEMENTS_PER_ROW = 17048;
-    parameter int NUM_ROWS         = 48;
-    parameter int ROWS_PER_CHANNEL = NUM_ROWS / NUM_CHANNELS;
-    parameter int ROWS_PER_CHANNEL_PER_BATCH = ROWS_PER_CHANNEL / BATCHES_PER_TRANSFER;
-         
+    // Internal vector buffer
     parameter int AXI_RAM_DATA_WIDTH = 256;
     parameter int AXI_RAM_STRB_WIDTH = AXI_RAM_DATA_WIDTH/8;
-    
-    int OFFSET_CYCLES = 1000;
+    localparam [ADDR_WIDTH-1:0] AXI_RAM_BASE_ADDR = { {(ADDR_WIDTH-32){1'b0}}, 32'h8000_0000 };
+         
+    int OFFSET_CYCLES = 1000; // Cycles between first element on each matrix channel
+
     int input_order[NUM_CHANNELS] = '{1, 2, 3, 4}; // Switch the order that s_axis_a channels start arriving. 
                                                    // Set to (0, 0, 0, 0) for simultaneous start, but note that
                                                    // the partition arbitration logic assumes an offset.
     
-    localparam [ADDR_WIDTH-1:0] AXI_RAM_BASE_ADDR = { {(ADDR_WIDTH-32){1'b0}}, 32'h8000_0000 };
+    parameter int ROWS_PER_CHANNEL           = NUM_ROWS / NUM_CHANNELS;
+    parameter int ROWS_PER_CHANNEL_PER_BATCH = ROWS_PER_CHANNEL / BATCHES_PER_TRANSFER;
     
-    localparam ELEMENTS_PER_WORD      = DATA_WIDTH / ELEMENT_WIDTH;
-    localparam WORDS_PER_ROW          = ELEMENTS_PER_ROW / ELEMENTS_PER_WORD;
+    localparam ELEMENTS_PER_WORD = DATA_WIDTH / ELEMENT_WIDTH;
+    localparam WORDS_PER_ROW     = ELEMENTS_PER_ROW / ELEMENTS_PER_WORD;
     
     localparam AXI_RAM_ELEMENTS_PER_WORD = AXI_RAM_DATA_WIDTH / ELEMENT_WIDTH;
     localparam ALIGN_FACTOR              = AXI_RAM_ELEMENTS_PER_WORD * NUM_RAM_PARTITIONS;
@@ -53,11 +61,14 @@ module tb_accelerator;
     localparam AXI_RAM_WORDS_PER_PARTITION = AXI_RAM_WORDS_PER_ROW / NUM_RAM_PARTITIONS;
     localparam AXI_RAM_BYTES_PER_PARTITION = AXI_RAM_WORDS_PER_PARTITION * AXI_RAM_STRB_WIDTH;
     localparam AXI_RAM_ADDR_WIDTH          = $clog2(AXI_RAM_BYTES_PER_PARTITION+1);
+
     localparam [ADDR_WIDTH-1:0] PARTITION_ALIGN = (1 << AXI_RAM_ADDR_WIDTH);
     
     localparam MAX_BURST_LEN = 128;
+    int unsigned num_full_bursts = AXI_RAM_WORDS_PER_PARTITION / MAX_BURST_LEN;
+    int unsigned final_burst_len = AXI_RAM_WORDS_PER_PARTITION % MAX_BURST_LEN;
     
-    // --------------
+    // --- Asserts ---
     
     initial assert (PCLK0_FREQ_MHZ > 0.0)                                              else $fatal(1, "PCLK0_FREQ_MHZ must be > 0");
     initial assert (ELEMENT_WIDTH == 16 || ELEMENT_WIDTH == 32 || ELEMENT_WIDTH == 64) else $fatal(1, "ELEMENT_WIDTH must be 16, 32, or 64");
@@ -240,24 +251,39 @@ module tb_accelerator;
     
     // ------------------------------
 
-    // Clock & reset signals    
+    // Control flow signals
+    logic start_transfer    = 0;
+    logic finished_transfer = 0;
+    int   finished_count    = 0;
+
+    logic send_vec    = 0;
+    logic send_matrix = 0;
+
+    logic [NUM_CHANNELS-1:0] matrix_sent       = '{default:'0};
+    logic [NUM_CHANNELS-1:0] matrix_sent_batch = '{default:'0};
+    logic [NUM_CHANNELS-1:0] outputs_received  = '{default:'0};
+
+    logic vec_done    = 0;
+    logic matrix_done = &matrix_sent;
+
+    // Clock & reset
     reg clk = 0, rstn = 1;
-    reg start_transfer = 0;
-    
-    always #(PCLK0_PERIOD_NS/2.0) clk = ~clk;
     
     // Inputs
-    logic [DATA_WIDTH-1:0] s_axis_a_tdata   [NUM_CHANNELS] = '{default:'0};
+    logic [DATA_WIDTH-1:0] s_axis_a_tdata   [NUM_CHANNELS] = '{default:  '0};
     logic                  s_axis_a_tvalid  [NUM_CHANNELS] = '{default:1'b0};
     logic                  s_axis_a_tready  [NUM_CHANNELS] = '{default:1'b0};
     logic                  s_axis_a_tlast   [NUM_CHANNELS] = '{default:1'b0};
     
     // Outputs
-    logic [ELEMENT_WIDTH-1:0] m_axis_tdata [NUM_CHANNELS] = '{default:'0};
-    logic                    m_axis_tvalid [NUM_CHANNELS] = '{default:1'b0};
-    logic                    m_axis_tready [NUM_CHANNELS] = '{default:1'b0};
-    logic                    m_axis_tlast  [NUM_CHANNELS] = '{default:1'b0};
+    logic [ELEMENT_WIDTH-1:0] m_axis_tdata  [NUM_CHANNELS] = '{default:  '0};
+    logic                     m_axis_tvalid [NUM_CHANNELS] = '{default:1'b0};
+    logic                     m_axis_tready [NUM_CHANNELS] = '{default:1'b0};
+    logic                     m_axis_tlast  [NUM_CHANNELS] = '{default:1'b0};
 
+    // Vector
+    logic [AXI_RAM_DATA_WIDTH-1:0] vector_buf [AXI_RAM_WORDS_PER_ROW-1:0] = '{default:'0};
+    
     // AXI Full write interface for vector b
     logic [ID_WIDTH-1:0]           s_axi_b_awid    = '{default:'0};
     logic [ADDR_WIDTH-1:0]         s_axi_b_awaddr  = '{default:'0};
@@ -279,68 +305,12 @@ module tb_accelerator;
     logic                          s_axi_b_bvalid  = '{default:'0};
     logic                          s_axi_b_bready  = '{default:'0};
              
-    logic [AXI_RAM_DATA_WIDTH-1:0] vector [AXI_RAM_WORDS_PER_ROW-1:0] = '{default:'0};
-    
-    // AXI full write task
-    task axi_write_burst(
-        input logic [ADDR_WIDTH-1:0] addr, 
-        input int len, 
-        input int vec_offset
-    );
-        integer k, idx;
-        begin
-            // Write address
-            s_axi_b_awaddr  = addr;
-            s_axi_b_awlen   = len - 1;
-            s_axi_b_awsize  = $clog2(AXI_RAM_STRB_WIDTH);
-            s_axi_b_awburst = 1;
-            s_axi_b_awvalid = 1;
-            
-            $display("\n[AXI WRITE] Starting burst write");
-            $display("[AXI WRITE]   Address    = 0x%08h", addr);
-            $display("[AXI WRITE]   Burst Len  = %0d (beats)", len);
-            $display("[AXI WRITE]   Beat Size  = %0d bytes", (1 << s_axi_b_awsize));
-            $display("[AXI WRITE]   Total Size = %0d bytes", len * (1 << s_axi_b_awsize));
+    // Testbench signals
+    elem_t matrix_values [NUM_CHANNELS][ELEMENTS_PER_ROW_PADDED];
+    elem_t vector_values [ELEMENTS_PER_ROW_PADDED];
+    real   expected      [NUM_CHANNELS-1:0][ROWS_PER_CHANNEL-1:0];    
 
-            @(posedge clk iff (s_axi_b_awready && s_axi_b_awvalid));
-            s_axi_b_awvalid = 0;
-            $display("[AXI WRITE] AW handshake done");
-                
-            // Write data
-            for (k = 0; k < len; k++) begin
-                idx = k + vec_offset;
-                $display("[AXI WRITE] Writing beat %0d: data = %h (vector[%0d])", k, vector[idx], idx);
-                s_axi_b_wdata = vector[idx];
-                s_axi_b_wstrb = {AXI_RAM_STRB_WIDTH{1'b1}};
-                s_axi_b_wvalid = 1;
-                s_axi_b_wlast = (k == len-1);
-                
-                @(posedge clk iff (s_axi_b_wready && s_axi_b_wvalid));
-                s_axi_b_wvalid = 0;
-            end
-            s_axi_b_wvalid = 0;
-            s_axi_b_wlast = 0;
-            $display("[AXI WRITE] Data phase complete");
-                    
-            // Write response
-            s_axi_b_bready = 1;
-            @(posedge clk iff (s_axi_b_bvalid && s_axi_b_bready));
-            s_axi_b_bready = 0;
-            $display("[AXI WRITE] Received B response");
-            
-            // Reset
-            s_axi_b_awvalid = 0;
-            s_axi_b_wvalid  = 0;
-            s_axi_b_bready  = 0;
-            s_axi_b_awid    = 0;
-            s_axi_b_awlock  = 0;
-            s_axi_b_awcache = 0;
-            s_axi_b_awprot  = 0;
-            s_axi_b_wlast   = 0;
-            s_axi_b_wstrb   = {AXI_RAM_STRB_WIDTH{1'b1}};
-            $display("[AXI WRITE] Burst write complete\n");
-        end
-    endtask
+    logic [ADDR_WIDTH-1:0] part_base, vec_base_offset, burst_offset; // Vector write signals
     
     // Instantiate DUT
     accelerator #(
@@ -382,24 +352,76 @@ module tb_accelerator;
         .s_axi_b_bvalid    (s_axi_b_bvalid ),
         .s_axi_b_bready    (s_axi_b_bready )
     );
-    
-    elem_t a_values [NUM_CHANNELS][ELEMENTS_PER_ROW_PADDED];
-    elem_t b_values [ELEMENTS_PER_ROW_PADDED];
-    
-    logic [NUM_CHANNELS-1:0] inputs_sent       = '{default:'0};
-    logic [NUM_CHANNELS-1:0] inputs_sent_batch = '{default:'0};
-    logic [NUM_CHANNELS-1:0] outputs_received  = '{default:'0};
-    
-    real expected [NUM_CHANNELS-1:0][ROWS_PER_CHANNEL-1:0];    
-    
-    logic [ADDR_WIDTH-1:0] base_addr, part_base, vec_base_offset, burst_offset;
-    int unsigned num_full_bursts = AXI_RAM_WORDS_PER_PARTITION / MAX_BURST_LEN;
-    int unsigned final_burst_len = AXI_RAM_WORDS_PER_PARTITION % MAX_BURST_LEN;
 
-    // Initialization + start_transfer control
-    int finished_transfer;
-    initial begin
+    // Clock generation
+    always #(PCLK0_PERIOD_NS/2.0) clk = ~clk;
+
+    // AXI full write task
+    task axi_write_burst(
+        input logic [ADDR_WIDTH-1:0] addr, 
+        input int len, 
+        input int vec_offset
+    );
+        integer k, idx;
+        begin
+            // Write address
+            s_axi_b_awaddr  = addr;
+            s_axi_b_awlen   = len - 1;
+            s_axi_b_awsize  = $clog2(AXI_RAM_STRB_WIDTH);
+            s_axi_b_awburst = 1;
+            s_axi_b_awvalid = 1;
+            
+            $display("\n[AXI WRITE] Starting burst write");
+            $display("[AXI WRITE]   Address    = 0x%08h", addr);
+            $display("[AXI WRITE]   Burst Len  = %0d (beats)", len);
+            $display("[AXI WRITE]   Beat Size  = %0d bytes", (1 << s_axi_b_awsize));
+            $display("[AXI WRITE]   Total Size = %0d bytes", len * (1 << s_axi_b_awsize));
+
+            @(posedge clk iff (s_axi_b_awready && s_axi_b_awvalid));
+            s_axi_b_awvalid = 0;
+            $display("[AXI WRITE] AW handshake done");
+                
+            // Write data
+            for (k = 0; k < len; k++) begin
+                idx = k + vec_offset;
+                $display("[AXI WRITE] Writing beat %0d: data = %h (vector_buf[%0d])", k, vector_buf[idx], idx);
+                s_axi_b_wdata = vector_buf[idx];
+                s_axi_b_wstrb = {AXI_RAM_STRB_WIDTH{1'b1}};
+                s_axi_b_wvalid = 1;
+                s_axi_b_wlast = (k == len-1);
+                
+                @(posedge clk iff (s_axi_b_wready && s_axi_b_wvalid));
+                s_axi_b_wvalid = 0;
+            end
+            s_axi_b_wvalid = 0;
+            s_axi_b_wlast = 0;
+            $display("[AXI WRITE] Data phase complete");
+            
+            // Write response
+            s_axi_b_bready = 1;
+            @(posedge clk iff (s_axi_b_bvalid && s_axi_b_bready));
+            s_axi_b_bready = 0;
+            $display("[AXI WRITE] Received B response");
+            
+            // Reset
+            s_axi_b_awvalid = 0;
+            s_axi_b_wvalid  = 0;
+            s_axi_b_bready  = 0;
+            s_axi_b_awid    = 0;
+            s_axi_b_awlock  = 0;
+            s_axi_b_awcache = 0;
+            s_axi_b_awprot  = 0;
+            s_axi_b_wlast   = 0;
+            s_axi_b_wstrb   = {AXI_RAM_STRB_WIDTH{1'b1}};
+            $display("[AXI WRITE] Burst write complete\n");
+        end
+    endtask
+
+    // Initialization
+    initial begin : initialization
     
+        $display("[INIT] Initialization starting...\n");
+
         // Reset
         rstn = 0;
         repeat (16) @(posedge clk); 
@@ -408,93 +430,143 @@ module tb_accelerator;
         repeat (4) @(posedge clk);
         
         for (int i = 0; i < NUM_CHANNELS; i++) begin
-            inputs_sent[i] = 0;
+            matrix_sent[i] = 0;
             outputs_received[i] = 0;
             m_axis_tready[i] = 1;
         end
     
-        // Initialize a_values
+        // Initialize matrix_values
         for (int i = 0; i < NUM_CHANNELS; i++) begin
             for (int j = 0; j < ELEMENTS_PER_ROW; j++) begin
-                automatic real a_r = ((j+1.0) / ((i+1) * 100000.0));
-                a_values[i][j] = real_to_elem(a_r);
-                //$display("Channel %0d : a_values[%0d] = %h (real=%f)", i, j, a_values[i][j], elem_to_real(a_values[i][j]));
+                automatic real matrix_r = ((j+1.0) / ((i+1) * 100000.0));
+                matrix_values[i][j] = real_to_elem(matrix_r);
+                //$display("Channel %0d : matrix_values[%0d] = %h (real=%f)", i, j, matrix_values[i][j], elem_to_real(matrix_values[i][j]));
             end
             for (int j = ELEMENTS_PER_ROW; j < ELEMENTS_PER_ROW_PADDED; j++) begin
-                a_values[i][j] = '0;
+                matrix_values[i][j] = '0;
             end
         end
         
-        // Initialize b_values
+        // Initialize vector_values
         for (int j = 0; j < ELEMENTS_PER_ROW; j++) begin
-            automatic real b_r = ((j+1.0) / 10000.0);
-            //automatic real b_r = ((j+1.0));
-            b_values[j] = real_to_elem(b_r);
-            //$display("b_values[%0d] = %h (real=%f)", j, b_values[j], elem_to_real(b_values[j]));
+            automatic real vector_r = ((j+1.0) / 10000.0);
+            vector_values[j] = real_to_elem(vector_r);
+            //$display("vector_values[%0d] = %h (real=%f)", j, vector_values[j], elem_to_real(vector_values[j]));
         end
-        for (int j = ELEMENTS_PER_ROW; j < ELEMENTS_PER_ROW_PADDED; j++) begin
-            b_values[j] = '0;
-        end
+        for (int j = ELEMENTS_PER_ROW; j < ELEMENTS_PER_ROW_PADDED; j++) vector_values[j] = '0; // Padding
         
-        // Initialize vector (group b_values)
+        // Initialize vector (group vector_values)
         for (int w = 0; w < AXI_RAM_WORDS_PER_ROW; w++) begin
-            vector[w] = '0;
+            vector_buf[w] = '0;
             for (int j = 0; j < AXI_RAM_ELEMENTS_PER_WORD; j++) begin
-                vector[w][j*ELEMENT_WIDTH +: ELEMENT_WIDTH] = b_values[w * AXI_RAM_ELEMENTS_PER_WORD + j];
-                //$display("vector[%0d][%0d] = %h (real = %f)", 
-                //         w, j, vector[w][j*ELEMENT_WIDTH +: ELEMENT_WIDTH], elem_to_real(b_values[w * AXI_RAM_ELEMENTS_PER_WORD + j]));
+                vector_buf[w][j*ELEMENT_WIDTH +: ELEMENT_WIDTH] = vector_values[w * AXI_RAM_ELEMENTS_PER_WORD + j];
+                //$display("vector_buf[%0d][%0d] = %h (real = %f)", 
+                //         w, j, vector_buf[w][j*ELEMENT_WIDTH +: ELEMENT_WIDTH], elem_to_real(vector_values[w * AXI_RAM_ELEMENTS_PER_WORD + j]));
             end
         end
-        
-        // Write vector to BRAM
-        for (int j = 0; j < NUM_RAM_PARTITIONS; j++) begin
-            part_base = AXI_RAM_BASE_ADDR + j * PARTITION_ALIGN;
-            vec_base_offset = j * AXI_RAM_WORDS_PER_PARTITION;
-                            
-            for (int k = 0; k < num_full_bursts; k++) begin
-                automatic int unsigned word_off = k * MAX_BURST_LEN;
-                burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
-                axi_write_burst(
-                    burst_offset,
-                    MAX_BURST_LEN,
-                    vec_base_offset + word_off
-                );
-            end
-            
-            if (final_burst_len > 0) begin
-                automatic int unsigned word_off = num_full_bursts * MAX_BURST_LEN;
-                burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
-                axi_write_burst(
-                    burst_offset,
-                    final_burst_len,
-                    vec_base_offset + word_off
-                );
-            end
-        end
-                
-        $display("Initialization complete\n");
+         
+        $display("[INIT] Initialization complete\n");
         start_transfer = 1;
-        
+        @(posedge clk);
+        start_transfer = 0;
+
+    end
+
+    // Controller
+    initial begin : transfer_controller
+        wait(start_transfer);
+    
         forever begin
             @(posedge clk);
-            start_transfer = 0;
+    
+            if (ARCH_TYPE == 2) begin
+                $display("\n[CTRL] ARCH_TYPE=2 -> send matrix first\n");
+    
+                send_matrix = 1;
+                @(posedge clk);
+                send_matrix = 0;
+                wait(matrix_done);
+    
+                send_vec = 1;
+                @(posedge clk);
+                send_vec = 0;
+                wait(vec_done);
+            end
+            else begin
+                $display("\n[CTRL] ARCH_TYPE=%0d -> send vector first\n", ARCH_TYPE);
+    
+                send_vec = 1;
+                @(posedge clk);
+                send_vec = 0;
+                wait(vec_done);
+    
+                send_matrix = 1;
+                @(posedge clk);
+                send_matrix = 0;
+                wait(matrix_done);
+            end
+    
             wait(finished_transfer);
+    
             repeat (1024) @(posedge clk);
-            start_transfer = 1;
+    
+            if (finished_count == NUM_TRANSFERS - 1)
+                break;
         end
     end
+
                 
-    // Parallel channel drivers
-    int finished_count = 0;
+    // Send Vector
+    initial begin : vector_driver
+        forever begin
+            wait(send_vec);
+            vec_done = 0;
+
+            $display("\n[VEC] Starting vector write\n");
+
+            for (int j = 0; j < NUM_RAM_PARTITIONS; j++) begin
+                part_base = AXI_RAM_BASE_ADDR + j * PARTITION_ALIGN;
+                vec_base_offset = j * AXI_RAM_WORDS_PER_PARTITION;
+                                
+                for (int k = 0; k < num_full_bursts; k++) begin
+                    automatic int unsigned word_off = k * MAX_BURST_LEN;
+                    burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
+                    axi_write_burst(
+                        burst_offset,
+                        MAX_BURST_LEN,
+                        vec_base_offset + word_off
+                    );
+                end
+                
+                if (final_burst_len > 0) begin
+                    automatic int unsigned word_off = num_full_bursts * MAX_BURST_LEN;
+                    burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
+                    axi_write_burst(
+                        burst_offset,
+                        final_burst_len,
+                        vec_base_offset + word_off
+                    );
+                end
+            end
+
+            $display("[VEC] Vector write complete\n");
+            vec_done = 1;
+
+            @(posedge clk);
+            while (send_vec) @(posedge clk);
+        end
+    end
+
+    // Send Matrix
     generate
-        for (genvar ch = 0; ch < NUM_CHANNELS; ch++) begin : channel_driver
+        for (genvar ch = 0; ch < NUM_CHANNELS; ch++) begin : matrix_channel_driver
             initial begin                
                 for (int i = 0; i < NUM_TRANSFERS; i++) begin
                 
-                    wait(start_transfer);
+                    wait(send_matrix);
                     
                     for (int b = 0; b < BATCHES_PER_TRANSFER; b++) begin
-                        inputs_sent_batch[ch] = 0;
+                        matrix_sent_batch[ch] = 0;
                     
                         // Stagger first input
                         repeat(OFFSET_CYCLES * input_order[ch]) @(posedge clk);
@@ -514,11 +586,11 @@ module tb_accelerator;
                                 s_axis_a_tdata[ch] = '0;
                                 for (int k = 0; k < ELEMENTS_PER_WORD; k++) begin
                                     automatic int abs_idx = word_idx * ELEMENTS_PER_WORD + k;
-                                    automatic real a_r = elem_to_real(a_values[ch][abs_idx]);
-                                    automatic real b_r = elem_to_real(b_values[abs_idx]);
+                                    automatic real matrix_r = elem_to_real(matrix_values[ch][abs_idx]);
+                                    automatic real vector_r = elem_to_real(vector_values[abs_idx]);
                                     
-                                    s_axis_a_tdata[ch][k*ELEMENT_WIDTH +: ELEMENT_WIDTH] = a_values[ch][abs_idx];
-                                    expected[ch][row] += a_r * b_r;
+                                    s_axis_a_tdata[ch][k*ELEMENT_WIDTH +: ELEMENT_WIDTH] = matrix_values[ch][abs_idx];
+                                    expected[ch][row] += matrix_r * vector_r;
                                 end
                                 
                                 s_axis_a_tvalid[ch] = 1;
@@ -536,14 +608,14 @@ module tb_accelerator;
                         end
                         
                         // Batch synchronization barrier
-                        inputs_sent_batch[ch] = 1;
-                        wait(inputs_sent_batch == {NUM_CHANNELS{1'b1}});
+                        matrix_sent_batch[ch] = 1;
+                        wait(matrix_sent_batch == {NUM_CHANNELS{1'b1}});
                         @(posedge clk);
                         if (ch == 0 && b < BATCHES_PER_TRANSFER-1) 
                             $display("\nTransfer %0d: Batch %0d sent.\n", finished_count, b);
                     end
                     
-                    inputs_sent[ch] = 1;
+                    matrix_sent[ch] = 1;
                 end
             end
         end
@@ -565,29 +637,29 @@ module tb_accelerator;
         end
     endgenerate
     
-    // Finish once all outputs are received
+    // Finish
     initial begin
         wait(start_transfer);
     
         forever begin        
-            automatic int check_finished = 1;
+            automatic bit check_finished = 1;
             for (int ch = 0; ch < NUM_CHANNELS; ch++) begin
-                if (!inputs_sent[ch] || !outputs_received[ch])
-                    check_finished = 0;
+                if (!matrix_sent[ch] || !outputs_received[ch]) check_finished = 0;
             end
             finished_transfer = check_finished;
             
             if (finished_transfer) begin
                 $display("\nTransfer %0d: All outputs received.\n", finished_count);
-                if (finished_count == NUM_TRANSFERS - 1) begin
-                    break;
-                end else begin
+                if (finished_count == NUM_TRANSFERS - 1) break; // Finish after last transfer
+                else begin
                     @(posedge clk);
                     finished_transfer = 0;
                     finished_count = finished_count + 1;
+                    vec_done = 0;
                     for (int ch = 0; ch < NUM_CHANNELS; ch++) begin
-                        inputs_sent[ch] = 0;
-                        outputs_received[ch] = 0;
+                        matrix_sent      [ch] = 0;
+                        matrix_sent_batch[ch] = 0;
+                        outputs_received [ch] = 0;
                     end
                 end
             end
