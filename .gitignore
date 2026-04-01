@@ -12,6 +12,7 @@ Vivado/kria/build/
 *.zip
 *.gz
 *.bit
+!Board/**/design_1.bit
 *.bin
 *.mmi
 *.ltx
