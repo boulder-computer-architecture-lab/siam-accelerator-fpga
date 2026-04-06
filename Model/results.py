@@ -12,7 +12,7 @@ def accumarray(indices, values, size):
     #return result
     return np.bincount(indices.astype(int) - 1, weights=values, minlength=size)
 
-def results(H, T, state):
+def results(H, T, state, mvm_precision=64):
     # Global variables
     H0 = state.H0
     a = state.a
@@ -40,7 +40,7 @@ def results(H, T, state):
     PDV_realgdp_w = 0
 
     # Simulate the model
-    l, w, u, tau, phi, realgdp = model(H, T, state)
+    l, w, u, tau, phi, realgdp = model(H, T, state, mvm_precision=mvm_precision)
 
     # Calculate correlations - Cell Level
     print('CORRELATIONS - CELL LEVEL')

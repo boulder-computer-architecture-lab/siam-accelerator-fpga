@@ -1,7 +1,8 @@
 import numpy as np
 #from scipy.special import gamma
+import time
 
-def model(H, T, state):
+def model(H, T, state, mvm_precision=64):
     # Global variables (make sure these are initialized or imported correctly)
     H0 = state.H0
     a = state.a
@@ -49,7 +50,7 @@ def model(H, T, state):
     a_norm = a * u0
 
     # Initialize output variables
-    dtype = np.float32
+    dtype = np.float64
     l = np.zeros((n, T), dtype=dtype)
     w = np.zeros((n, T), dtype=dtype)
     phi = np.zeros((n, T), dtype=dtype)
@@ -67,6 +68,15 @@ def model(H, T, state):
 
     # Initial guess for uhat
     uhat_loop = np.ones(n) / n
+
+    # MVM Precision
+    np_dtype = {16: np.float16, 32: np.float32, 64: np.float64}[mvm_precision]
+    trmult_prec = trmult_reduced.astype(np_dtype)
+    dtype_max = np.finfo(np_dtype).max
+    dtype_tiny = np.finfo(np_dtype).tiny
+    prescale = (mvm_precision == 16)
+
+    full_start = time.perf_counter()
 
     # Calculate equilibrium distribution for each period
     for t in range(T):
@@ -90,25 +100,58 @@ def model(H, T, state):
 
         i_exp = exponent_l / Omega - theta ** 2 / (1 + 2 * theta)
         u_exp = 1 / (khi * theta / Omega + theta * (1 + theta) / (1 + 2 * theta))
-
-        print(f"i_exp: {i_exp}")
-        print(f"u_exp: {u_exp}")
         
+        alpha_ = 0
+        beta_  = 0.5
+
+        iter = 0
+
+        loop_start = time.perf_counter()
+
         # Inner loop
         while error >= 1e-2:
+            iter += 1
             uhat_old = uhat_loop.copy()
-            input_integral_inner = input_integral_outer * uhat_loop ** i_exp
-            input_integral_inner[uhat_loop == 0] = 0
+            input_integral_inner = input_integral_outer * uhat_loop ** i_exp # i_exp=-5.33
             
             # Matrix product
-            print(input_integral_inner)
-            rhs = np.dot(trmult_reduced, input_integral_inner)
-            eps_val = 1e-12
-            rhs = np.maximum(rhs, eps_val)
-            
-            uhat_loop = aa2 * input_uhat_inner * rhs ** u_exp
-            error = np.sum((uhat_loop - uhat_old) ** 2)
-        
+            input_integral_inner = np.clip(input_integral_inner, dtype_tiny, dtype_max)
+            mvm_start = time.perf_counter()
+            rhs = np.dot(trmult_prec, input_integral_inner.astype(np_dtype))
+            mvm_end = time.perf_counter()
+            print(f"mvm elapsed time: {mvm_end - mvm_start:.4f} (s)")
+            rhs[np.isinf(rhs)] = dtype_max
+
+            if prescale: rhs = rhs.astype(np.float64) / 100.0 # unscale
+
+            uhat_loop = aa2 * input_uhat_inner * rhs ** u_exp # u_exp=0.12
+            uhat_loop = alpha_ * uhat_old + (1 - alpha_) * uhat_loop
+
+            error_new = np.sum((uhat_loop - uhat_old) ** 2)
+
+            if (error_new > error): alpha_ += beta_ * (1 - alpha_)
+            error = error_new
+
+            print(f"iter {iter}: error={error}")
+
+        loop_end = time.perf_counter()
+
+        print(f"loop elapsed time: {loop_end - loop_start:.4f} (s)")
+        print(f"num_iterations: {iter}")
+        print(f" 1%: {np.quantile(uhat_loop, 0.01)}")
+        print(f"10%: {np.quantile(uhat_loop, 0.10)}")
+        print(f"25%: {np.quantile(uhat_loop, 0.25)}")
+        print(f"50%: {np.quantile(uhat_loop, 0.50)}")
+        print(f"75%: {np.quantile(uhat_loop, 0.75)}")
+        print(f"90%: {np.quantile(uhat_loop, 0.90)}")
+        print(f"99%: {np.quantile(uhat_loop, 0.99)}")
+        print(f"uhat_loop avg: {np.mean(uhat_loop)}")
+
+        np.save(f"cpu-result{mvm_precision}.npy", uhat_loop)
+
+        import sys
+        sys.exit(-1)
+
         uhat[:, t] = uhat_loop
 
         # Solve for u using equation (53)
@@ -150,6 +193,9 @@ def model(H, T, state):
         if t < T - 1:
             avgprod = np.sum(tau[:, t]) / n
             tau[:, t + 1] = eta * tau[:, t] ** gamma2 * avgprod ** (1 - gamma2) * phi[:, t] ** (gamma1 * theta)
+
+    full_end = time.perf_counter()
+    print(f"model elapsed time: {full_end - full_start:.4f} (s)")
     
     # Handle NaN values
     realgdp[np.isnan(realgdp)] = 0

@@ -7,7 +7,7 @@ def _load_npy(path, flat=False, mmap=False):
     return arr
 
 
-def initialize(N=17048):
+def initialize(N=17048, prescale=True):
     H0   = _load_npy("Data/H0.npy")
     a    = _load_npy("Data/a_H0.npy", flat=True)
     tau0 = _load_npy("Data/tau_H0.npy", flat=True)
@@ -30,8 +30,8 @@ def initialize(N=17048):
     ubar[np.isnan(ubar)] = 0
     ubar[np.isinf(ubar)] = 0
 
-    trmult_reduced_padded = _load_npy("Data/trmult_reduced32_padded.npy", mmap=True)
-    trmult_reduced = trmult_reduced_padded[:N, :N]
+    mat_file = "Data/trmult_scaled64.npy" if prescale else "Data/trmult_reduced64.npy"
+    trmult_reduced = _load_npy(mat_file, mmap=True)
 
     C = _load_npy("Data/C.npy", flat=True)
     C_stock = C[earth_indices]
@@ -50,24 +50,10 @@ def initialize(N=17048):
     theta = 6.5
     Omega = 0.5
 
-    #state = ModelState(
     return ModelState(
         H0, a, a_norm, m2, C_vect, tau0,
         pop0, pop5, pop5_fertadj, popminus5, popminus10, ubar,
         trmult_reduced, n, earth_indices, indicator_sea, subs, None,
         beta, tail_bands, None, alpha, theta, Omega
     )
-
-    """
-    import sys
-    from dataclasses import fields
-    
-    for f in fields(state):
-        v = getattr(state, f.name)
-        dt = getattr(v, "dtype", None)
-        sh = getattr(v, "shape", None)
-        print(f"{f.name:16s} dtype={dt} shape={sh} type={type(v).__name__}")
-
-    sys.exit(0)
-    """
 
