@@ -40,7 +40,7 @@ Vivado/kria/build/
 *.swo
 *~
 .vscode/
-__pycache__/
+*__pycache__/
 *.pyc
 
 

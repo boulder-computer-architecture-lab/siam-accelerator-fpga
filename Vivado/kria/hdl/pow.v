@@ -83,7 +83,7 @@ module pow #(
             // input: y*ln(x)
             // out:   e^(y*ln(x)) = x^y
             fp64_exp exp(
-                .aclk(aclk), .aresetn(aresetn),
+                .aclk(clk), .aresetn(rstn),
 
                 .s_axis_a_tdata(mult_out_tdata),
                 .s_axis_a_tvalid(mult_out_tvalid),
@@ -137,7 +137,7 @@ module pow #(
             // input: y*ln(x)
             // out:   e^(y*ln(x)) = x^y
             fp32_exp exp(
-                .aclk(aclk), .aresetn(aresetn),
+                .aclk(clk), .aresetn(rstn),
 
                 .s_axis_a_tdata(mult_out_tdata),
                 .s_axis_a_tvalid(mult_out_tvalid),
@@ -191,7 +191,7 @@ module pow #(
             // input: y*ln(x)
             // out:   e^(y*ln(x)) = x^y
             fp16_exp exp(
-                .aclk(aclk), .aresetn(aresetn),
+                .aclk(clk), .aresetn(rstn),
 
                 .s_axis_a_tdata(mult_out_tdata),
                 .s_axis_a_tvalid(mult_out_tvalid),

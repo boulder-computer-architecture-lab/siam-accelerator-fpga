@@ -90,64 +90,61 @@ module mvm_compute #(
                 for (j = 0; j < ELEMENTS_PER_WORD >> (lvl + 1); j = j + 1) begin : tree_node
                     if (ELEMENT_WIDTH == 16) begin : gen_add16
                         fp16_adder add_inst (
-                            .aclk(clk),
-                            .aresetn(rstn),
+                            .aclk(clk), .aresetn(rstn),
                             
-                            .s_axis_a_tdata (adder_tree_data[lvl][2*j]),
+                            .s_axis_a_tdata (adder_tree_data[lvl][2*j] ),
                             .s_axis_a_tvalid(adder_tree_valid[lvl][2*j]),
                             .s_axis_a_tready(adder_tree_ready[lvl][2*j]),
-                            .s_axis_a_tlast(adder_tree_last[lvl][2*j]),
+                            .s_axis_a_tlast (adder_tree_last[lvl][2*j] ),
                             
-                            .s_axis_b_tdata (adder_tree_data[lvl][2*j+1]),
+                            .s_axis_b_tdata (adder_tree_data[lvl][2*j+1] ),
                             .s_axis_b_tvalid(adder_tree_valid[lvl][2*j+1]),
                             .s_axis_b_tready(adder_tree_ready[lvl][2*j+1]),
-                            .s_axis_b_tlast(adder_tree_last[lvl][2*j+1]),
+                            .s_axis_b_tlast (adder_tree_last[lvl][2*j+1] ),
 
-                            .m_axis_result_tdata (adder_tree_data[lvl+1][j]),
+                            .m_axis_result_tdata (adder_tree_data[lvl+1][j] ),
                             .m_axis_result_tvalid(adder_tree_valid[lvl+1][j]),
                             .m_axis_result_tready(adder_tree_ready[lvl+1][j]),
-                            .m_axis_result_tlast(adder_tree_last[lvl+1][j])
+                            .m_axis_result_tlast (adder_tree_last[lvl+1][j] )
                         );
 
                     end else if (ELEMENT_WIDTH == 32) begin: gen_add32
                         fp32_adder add_inst (
-                            .aclk(clk),
-                            .aresetn(rstn),
+                            .aclk(clk), .aresetn(rstn),
                             
-                            .s_axis_a_tdata (adder_tree_data[lvl][2*j]),
+                            .s_axis_a_tdata (adder_tree_data[lvl][2*j] ),
                             .s_axis_a_tvalid(adder_tree_valid[lvl][2*j]),
                             .s_axis_a_tready(adder_tree_ready[lvl][2*j]),
-                            .s_axis_a_tlast(adder_tree_last[lvl][2*j]),
+                            .s_axis_a_tlast (adder_tree_last[lvl][2*j] ),
                             
-                            .s_axis_b_tdata (adder_tree_data[lvl][2*j+1]),
+                            .s_axis_b_tdata (adder_tree_data[lvl][2*j+1] ),
                             .s_axis_b_tvalid(adder_tree_valid[lvl][2*j+1]),
                             .s_axis_b_tready(adder_tree_ready[lvl][2*j+1]),
-                            .s_axis_b_tlast(adder_tree_last[lvl][2*j+1]),
+                            .s_axis_b_tlast (adder_tree_last[lvl][2*j+1] ),
 
-                            .m_axis_result_tdata (adder_tree_data[lvl+1][j]),
+                            .m_axis_result_tdata (adder_tree_data[lvl+1][j] ),
                             .m_axis_result_tvalid(adder_tree_valid[lvl+1][j]),
                             .m_axis_result_tready(adder_tree_ready[lvl+1][j]),
-                            .m_axis_result_tlast(adder_tree_last[lvl+1][j])
+                            .m_axis_result_tlast (adder_tree_last[lvl+1][j] )
                         );
                     end else if (ELEMENT_WIDTH == 64) begin : gen_add64
                         fp64_adder add_inst (
-                            .aclk(clk),
-                            .aresetn(rstn),
+                            .aclk(clk), .aresetn(rstn),
                             
-                            .s_axis_a_tdata (adder_tree_data[lvl][2*j]),
+                            .s_axis_a_tdata (adder_tree_data[lvl][2*j] ),
                             .s_axis_a_tvalid(adder_tree_valid[lvl][2*j]),
                             .s_axis_a_tready(adder_tree_ready[lvl][2*j]),
-                            .s_axis_a_tlast(adder_tree_last[lvl][2*j]),
+                            .s_axis_a_tlast (adder_tree_last[lvl][2*j] ),
                             
-                            .s_axis_b_tdata (adder_tree_data[lvl][2*j+1]),
+                            .s_axis_b_tdata (adder_tree_data[lvl][2*j+1] ),
                             .s_axis_b_tvalid(adder_tree_valid[lvl][2*j+1]),
                             .s_axis_b_tready(adder_tree_ready[lvl][2*j+1]),
-                            .s_axis_b_tlast(adder_tree_last[lvl][2*j+1]),
+                            .s_axis_b_tlast (adder_tree_last[lvl][2*j+1] ),
 
-                            .m_axis_result_tdata (adder_tree_data[lvl+1][j]),
+                            .m_axis_result_tdata (adder_tree_data[lvl+1][j] ),
                             .m_axis_result_tvalid(adder_tree_valid[lvl+1][j]),
                             .m_axis_result_tready(adder_tree_ready[lvl+1][j]),
-                            .m_axis_result_tlast(adder_tree_last[lvl+1][j])
+                            .m_axis_result_tlast (adder_tree_last[lvl+1][j] )
                         );
                     end
                 end
@@ -164,22 +161,21 @@ module mvm_compute #(
                 .WORDS_PER_ROW(WORDS_PER_ROW),
                 .ROWS_PER_CHANNEL(ROWS_PER_CHANNEL)
             ) dp_single (
-                .clk(clk),
-                .rstn(rstn),
+                .clk(clk), .rstn(rstn),
     
-                .s_axis_a_tdata (s_axis_a_tdata),
+                .s_axis_a_tdata (s_axis_a_tdata ),
                 .s_axis_a_tvalid(s_axis_a_tvalid),
                 .s_axis_a_tready(s_axis_a_tready),
-                .s_axis_a_tlast (s_axis_a_tlast),
+                .s_axis_a_tlast (s_axis_a_tlast ),
     
-                .s_axis_b_tdata (s_axis_b_tdata),
+                .s_axis_b_tdata (s_axis_b_tdata ),
                 .s_axis_b_tvalid(s_axis_b_tvalid),
                 .s_axis_b_tready(s_axis_b_tready),
     
-                .m_axis_tdata (m_axis_tdata),
+                .m_axis_tdata (m_axis_tdata ),
                 .m_axis_tvalid(m_axis_tvalid),
                 .m_axis_tready(m_axis_tready),
-                .m_axis_tlast (m_axis_tlast)
+                .m_axis_tlast (m_axis_tlast )
             );
         end
     endgenerate

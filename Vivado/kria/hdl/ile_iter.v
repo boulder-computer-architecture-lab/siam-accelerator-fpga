@@ -740,6 +740,65 @@ module ile_iter #(
     assign b_wconv_axis_tready = (axi_b_region_sel == REGION_VEC_INIT) ? vec_init_axis_tready  :
                                  (axi_b_region_sel == REGION_OUTER   ) ? int_outer_axis_tready : uhat_inner_axis_tready;
 
+    // Track which vectors have been written to buffer
+    reg [1:0] axi_b_wr_region;
+    reg       axi_b_wr_pending;
+
+    reg [AXI_B_ADDR_WIDTH:0]    axi_b_wr_bytes_pending;
+    reg [AXI_B_ADDR_WIDTH:0]    region_bytes_written [0:AXI_B_NUM_REGIONS-1];
+    reg [AXI_B_NUM_REGIONS-1:0] region_valid;
+
+    wire [AXI_B_ADDR_WIDTH:0] axi_b_aw_bytes = (axi_b_ram_awlen + 1) << axi_b_ram_awsize;
+
+    wire [1:0] axi_b_aw_region_sel =
+        (axi_b_ram_awaddr < VEC_OUTER_OFFSET) ? REGION_VEC_INIT :
+        (axi_b_ram_awaddr < VEC_INNER_OFFSET) ? REGION_OUTER    :
+                                                REGION_INNER;
+    reg start_mm2s_init;
+
+    integer r;
+    always @(posedge clk) begin
+        if (!rstn) begin
+            axi_b_wr_region        <= REGION_VEC_INIT;
+            axi_b_wr_bytes_pending <= {AXI_B_ADDR_WIDTH{1'b0}};
+            axi_b_wr_pending       <= 1'b0;
+            start_mm2s_init        <= 1'b0;
+
+            for (r = 0; r < AXI_B_NUM_REGIONS; r = r + 1) begin
+                region_bytes_written[r] <= {AXI_B_ADDR_WIDTH{1'b0}};
+                region_valid[r]         <= 1'b0;
+            end
+        end else begin
+            start_mm2s_init <= 1'b0;
+
+            // Latch one pending completed-write unit
+            if (axi_b_ram_awvalid && axi_b_ram_awready) begin
+                axi_b_wr_region        <= axi_b_aw_region_sel;
+                axi_b_wr_bytes_pending <= axi_b_aw_bytes;
+                axi_b_wr_pending       <= 1'b1;
+            end
+
+            // Commit the write on B response
+            if (axi_b_ram_bvalid && axi_b_ram_bready && axi_b_wr_pending) begin
+                if (!region_valid[axi_b_wr_region]) begin
+                    if (region_bytes_written[axi_b_wr_region] + axi_b_wr_bytes_pending >= AXI_B_BYTES_PER_REGION) begin
+                        region_bytes_written[axi_b_wr_region] <= {AXI_B_ADDR_WIDTH{1'b0}};
+                        region_valid[axi_b_wr_region]         <= 1'b1;
+                    end else begin
+                        region_bytes_written[axi_b_wr_region] <=
+                            region_bytes_written[axi_b_wr_region] + axi_b_wr_bytes_pending;
+                    end
+                end
+
+                axi_b_wr_pending <= 1'b0;
+            end
+
+            // Fire init read only once region 0 is ready
+            if (region_valid[REGION_VEC_INIT])
+                start_mm2s_init <= 1'b1;
+        end
+    end
+
     // ========================================
     //          CONVERGENCE CHECKER
     // ========================================
@@ -865,8 +924,7 @@ module ile_iter #(
     generate
         if          (ELEMENT_WIDTH == 64) begin : exp0_64 assign i_exp_tdata = I_EXP64;
         end else if (ELEMENT_WIDTH == 32) begin : exp0_32 assign i_exp_tdata = I_EXP32;
-        end else if (ELEMENT_WIDTH == 16) begin : exp0_16 assign i_exp_tdata = I_EXP16;
-        end
+        end else if (ELEMENT_WIDTH == 16) begin : exp0_16 assign i_exp_tdata = I_EXP16; end
     endgenerate
 
     assign i_exp_tvalid = vec_in_pow_axis_tvalid;
@@ -1363,7 +1421,7 @@ module ile_iter #(
 
     // === 1. s2mm channel for vec_in ===
 
-    // Trigger: first beatof axis_wconv
+    // Trigger: first beat of axis_wconv
     reg  wconv_in_frame;
 
     always @(posedge clk) begin
@@ -1397,29 +1455,58 @@ module ile_iter #(
 
     reg start_mm2s_outer;
     reg start_mm2s_inner;
-    reg start_mm2s_init;
+
+    reg axi_b_mm2s_busy;
 
     always @(posedge clk) begin
         if (!rstn) begin
             start_axi_b_mm2s <= 1'b0;
             axi_b_region_sel <= 2'b0;
+            axi_b_mm2s_busy  <= 1'b0;
         end else begin
             start_axi_b_mm2s <= 1'b0;
 
-            if (start_mm2s_outer) begin
-                axi_b_region_sel <= REGION_OUTER;
-                start_axi_b_mm2s <= 1'b1;
-            end else if (start_mm2s_inner) begin
-                axi_b_region_sel <= REGION_INNER;
-                start_axi_b_mm2s <= 1'b1;
-            end else if (start_mm2s_init) begin
-                axi_b_region_sel <= REGION_VEC_INIT;
-                start_axi_b_mm2s <= 1'b1;
+            if (axi_b_rd_status_valid) 
+                axi_b_mm2s_busy <= 1'b0;
+
+            if (!axi_b_mm2s_busy) begin
+                if (start_mm2s_outer && region_valid[REGION_OUTER]) begin
+                    axi_b_region_sel <= REGION_OUTER;
+                    start_axi_b_mm2s <= 1'b1;
+                    axi_b_mm2s_busy  <= 1'b1;
+                end else if (start_mm2s_inner && region_valid[REGION_INNER]) begin
+                    axi_b_region_sel <= REGION_INNER;
+                    start_axi_b_mm2s <= 1'b1;
+                    axi_b_mm2s_busy  <= 1'b1;
+                end else if (start_mm2s_init && region_valid[REGION_VEC_INIT]) begin
+                    axi_b_region_sel <= REGION_VEC_INIT;
+                    start_axi_b_mm2s <= 1'b1;
+                    axi_b_mm2s_busy  <= 1'b1;
+                end
             end
         end
     end
 
-    // --- 3a. read int_outer from shared buffer ---
+    // --- 3a. read vec_init from shared buffer ---
+
+    // Trigger: write to region 0 of shared buffer completes
+    reg sent_init;
+
+    always @(posedge clk) begin
+        if (!rstn) begin
+            start_mm2s_init <= 1'b0;
+            sent_init       <= 1'b0;
+        end else begin
+            start_mm2s_init <= 1'b0;
+
+            if (!sent_init && region_valid[REGION_VEC_INIT]) begin
+                start_mm2s_init <= 1'b1;
+                sent_init       <= 1'b1;
+            end
+        end
+    end
+
+    // --- 3b. read int_outer from shared buffer ---
 
     // Trigger: first beat of pow0
     reg pow0_in_frame;
@@ -1432,7 +1519,8 @@ module ile_iter #(
             start_mm2s_outer <= 1'b0;
 
             if (vec_in_pow_axis_tvalid && vec_in_pow_axis_tready) begin
-                if (!pow0_in_frame) start_mm2s_outer <= 1'b1;
+                if (!pow0_in_frame && region_valid[REGION_OUTER]) 
+                    start_mm2s_outer <= 1'b1;
 
                 if (vec_in_pow_axis_tlast) pow0_in_frame <= 1'b0;
                 else                       pow0_in_frame <= 1'b1;
@@ -1440,7 +1528,7 @@ module ile_iter #(
         end
     end
     
-    // --- 3b. read uhat_inner from shared buffer ---
+    // --- 3c. read uhat_inner from shared buffer ---
 
     // Trigger: first beat of pow1
     reg pow1_in_frame;
@@ -1453,43 +1541,11 @@ module ile_iter #(
             start_mm2s_inner <= 1'b0;
 
             if (vec_new_axis_tvalid && vec_new_axis_tready) begin
-                if (!pow1_in_frame) start_mm2s_inner <= 1'b1;
+                if (!pow1_in_frame && region_valid[REGION_INNER]) 
+                    start_mm2s_inner <= 1'b1;
 
                 if (vec_new_axis_tlast) pow1_in_frame <= 1'b0;
                 else                    pow1_in_frame <= 1'b1;
-            end
-        end
-    end
-
-    // --- 3c. read vec_init from shared buffer ---
-
-    // Trigger: write to region 0 of shared buffer completes
-    reg [1:0] axi_b_wr_region;
-    reg       axi_b_wr_pending;
-    
-    wire [1:0] axi_b_aw_region_sel;
-
-    assign axi_b_aw_region_sel =
-        (axi_b_ram_awaddr < VEC_OUTER_OFFSET) ? REGION_VEC_INIT :
-        (axi_b_ram_awaddr < VEC_INNER_OFFSET) ? REGION_OUTER    :
-                                                REGION_INNER;
-    
-    always @(posedge clk) begin
-        if (!rstn) begin
-            axi_b_wr_region  <= REGION_VEC_INIT;
-            axi_b_wr_pending <= 1'b0;
-            start_mm2s_init  <= 1'b0;
-        end else begin
-            start_mm2s_init <= 1'b0;
-    
-            if (axi_b_ram_awvalid && axi_b_ram_awready) begin
-                axi_b_wr_region  <= axi_b_aw_region_sel;
-                axi_b_wr_pending <= 1'b1;
-            end
-
-            if (axi_b_ram_bvalid && axi_b_ram_bready && axi_b_wr_pending) begin
-                if (axi_b_wr_region == REGION_VEC_INIT) start_mm2s_init <= 1'b1;
-                axi_b_wr_pending <= 1'b0;
             end
         end
     end
@@ -1534,6 +1590,94 @@ module ile_iter #(
             end
         end
     end
+
+    // ========================================
+    //           SIMULATION ONLY
+    // ========================================
+    
+    // For debugging
+
+    `ifndef SYNTHESIS
+        // Iteration counter
+        integer sim_iter;
+        reg     sim_vec_in_frame;
+
+        always @(posedge clk) begin
+            if (!rstn) begin
+                sim_iter         <= 0;
+                sim_vec_in_frame <= 1'b0;
+            end else begin
+                if (vec_in_axis_tvalid && vec_in_axis_tready) begin
+                    if (!sim_vec_in_frame) begin
+                        $display("%0t ~ ITER %0d START: check_convergence started producing vec_in", $time, sim_iter);
+                        sim_iter <= sim_iter + 1;
+                    end
+
+                    if (vec_in_axis_tlast) sim_vec_in_frame <= 1'b0;
+                    else                   sim_vec_in_frame <= 1'b1;
+                end
+            end
+        end
+
+        // Track which DMAs are active
+        reg [MAX_CH-1:0] sim_matrix_wr_active;
+        reg [MAX_CH-1:0] sim_matrix_rd_active;
+        reg              sim_axi_b_rd_active;
+        reg              sim_vec_in_wr_active;
+
+        integer dbg_i;
+        always @(posedge clk) begin
+            if (!rstn) begin
+                sim_matrix_wr_active <= {MAX_CH{1'b0}};
+                sim_matrix_rd_active <= {MAX_CH{1'b0}};
+                sim_axi_b_rd_active  <= 1'b0;
+                sim_vec_in_wr_active <= 1'b0;
+            end else begin
+                for (dbg_i = 0; dbg_i < MAX_CH; dbg_i = dbg_i + 1) begin
+                    // matrix s_axis_a -> local matrix RAM
+                    if (dma_wr_desc_valid[dbg_i] && dma_wr_desc_ready[dbg_i]) begin
+                        $display("%0t ~ Matrix write DMA (channel %0d): Armed", $time, dbg_i);
+                        sim_matrix_wr_active[dbg_i] <= 1'b1;
+                    end 
+                    if (dma_wr_status_valid[dbg_i]) begin
+                        $display("%0t ~ Matrix write DMA (channel %0d): Completed", $time, dbg_i);
+                        sim_matrix_wr_active[dbg_i] <= 1'b0;
+                    end
+
+                    // local matrix RAM -> mvm
+                    if (dma_rd_desc_valid[dbg_i] && dma_rd_desc_ready[dbg_i]) begin
+                        $display("%0t ~ Matrix read DMA (channel %0d): Armed", $time, dbg_i);
+                        sim_matrix_rd_active[dbg_i] <= 1'b1;
+                    end
+                    if (dma_rd_status_valid[dbg_i]) begin
+                        $display("%0t ~ Matrix read DMA (channel %0d): Completed", $time, dbg_i);
+                        sim_matrix_rd_active[dbg_i] <= 1'b0;
+                    end
+                end
+
+                // shared AXI_B buffer -> downstream
+                if (axi_b_rd_desc_valid && axi_b_rd_desc_ready) begin
+                    $display("%0t ~ Shared buffer read DMA: Armed (region=%0d, offset=0x%08x)", 
+                                                    $time, axi_b_rd_desc_addr, axi_b_region_sel);
+                    sim_axi_b_rd_active <= 1'b1;
+                end
+                if (axi_b_rd_status_valid) begin
+                    $display("%0t ~ Shared buffer read DMA: Completed", $time);
+                    sim_axi_b_rd_active <= 1'b0;
+                end
+
+                // vec_in path -> mvm AXI slave
+                if (vec_in_desc_valid && vec_in_desc_ready) begin
+                    $display("%0t ~ Vector-in read DMA (part_idx=%0d): Armed", $time, vec_in_part_idx);
+                    sim_vec_in_wr_active <= 1'b1;
+                end
+                if (vec_in_status_valid) begin
+                    $display("%0t ~ Vector-in read DMA (part_idx=%0d): Completed", $time, vec_in_part_idx);
+                    sim_vec_in_wr_active <= 1'b0;
+                end
+            end
+        end
+    `endif
 
 endmodule
 
