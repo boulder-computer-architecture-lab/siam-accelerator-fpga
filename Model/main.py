@@ -7,11 +7,12 @@ from results import results
 from backward import backward
 from plots import plots
 
-MVM_PRECISION = 16
-PRESCALE = False #(MVM_PRECISION == 16)
+DATA_DIR = "Data_Country"
+MVM_PREC = 16
+PRESCALE = (MVM_PREC == 16)
 
 # Initialize model
-state = initialize(prescale=PRESCALE)
+state = initialize(data_dir=DATA_DIR, prescale=PRESCALE)
 
 # Distribution of land for simulation
 H0_arr = np.asarray(state.H0).reshape(-1)
@@ -21,7 +22,7 @@ H = H0_arr[state.earth_indices]
 nb_per = 600
 
 # Run the model and obtain summary statistics
-results_data = results(H, nb_per, state, mvm_precision=MVM_PRECISION)
+results_data = results(H, nb_per, state, mvm_precision=MVM_PREC)
 realgdp_w, u_w, u2_w, prod_w, phi_w, PDV_u_w, PDV_u2_w, PDV_realgdp_w, migr_cell, migr_ctry, l, u, u2, tau, realgdp = results_data
 
 # Plot time series and maps, and save them

@@ -2,8 +2,8 @@ import os
 import numpy as np
 import scipy.io as sio
 
-DTYPE = np.float16
-DATA_DIR = "Data"
+DTYPE = np.float64
+DATA_DIR = "../Data_Country"
 
 def _load_mat_any(path):
     try:

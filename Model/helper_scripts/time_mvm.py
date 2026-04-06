@@ -1,9 +1,12 @@
 import numpy as np
 import time
+import os
 
-trmult16        = np.load("Data/trmult_reduced16.npy")
-trmult16_scaled = np.load("Data/trmult_scaled16.npy" )
-trmult64        = np.load("Data/trmult_reduced64.npy")
+DATA_DIR = "../Data"
+
+trmult16        = np.load(os.path.join(DATA_DIR, "trmult_reduced16.npy"))
+trmult16_scaled = np.load(os.path.join(DATA_DIR, "trmult_scaled16.npy" ))
+trmult64        = np.load(os.path.join(DATA_DIR, "trmult_reduced64.npy"))
 
 vec64 = np.random.rand(17048) * 100
 vec16 = vec64.astype(np.float16)

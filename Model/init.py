@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from state import ModelState
 
@@ -7,19 +8,17 @@ def _load_npy(path, flat=False, mmap=False):
     return arr
 
 
-def initialize(N=17048, prescale=True):
-    H0   = _load_npy("Data/H0.npy")
-    a    = _load_npy("Data/a_H0.npy", flat=True)
-    tau0 = _load_npy("Data/tau_H0.npy", flat=True)
-    m2   = _load_npy("Data/m2.npy", flat=True)
+def initialize(data_dir="Data", prescale=True):
+    H0   = _load_npy(os.path.join(data_dir, "H0.npy"    )           )
+    a    = _load_npy(os.path.join(data_dir, "a_H0.npy"  ), flat=True)
+    tau0 = _load_npy(os.path.join(data_dir, "tau_H0.npy"), flat=True)
+    m2   = _load_npy(os.path.join(data_dir, "m2.npy"    ), flat=True)
 
-    a_norm = None
-
-    pop0         = _load_npy("Data/l.npy", flat=True)
-    pop5         = _load_npy("Data/pop5.npy", flat=True)
-    popminus5    = _load_npy("Data/popminus5.npy", flat=True)
-    popminus10   = _load_npy("Data/popminus10.npy", flat=True)
-    pop5_fertadj = _load_npy("Data/pop5_fertadj.npy", flat=True)
+    pop0         = _load_npy(os.path.join(data_dir, "l.npy"           ), flat=True)
+    pop5         = _load_npy(os.path.join(data_dir, "pop5.npy"        ), flat=True)
+    popminus5    = _load_npy(os.path.join(data_dir, "popminus5.npy"   ), flat=True)
+    popminus10   = _load_npy(os.path.join(data_dir, "popminus10.npy"  ), flat=True)
+    pop5_fertadj = _load_npy(os.path.join(data_dir, "pop5_fertadj.npy"), flat=True)
 
     H0_arr = np.asarray(H0)
     earth_indices = np.flatnonzero(H0_arr.reshape(-1) > 0)
@@ -30,10 +29,10 @@ def initialize(N=17048, prescale=True):
     ubar[np.isnan(ubar)] = 0
     ubar[np.isinf(ubar)] = 0
 
-    mat_file = "Data/trmult_scaled64.npy" if prescale else "Data/trmult_reduced64.npy"
-    trmult_reduced = _load_npy(mat_file, mmap=True)
+    mat_file = "trmult_scaled64.npy" if prescale else "trmult_reduced64.npy"
+    trmult_reduced = _load_npy(os.path.join(data_dir, mat_file), mmap=True)
 
-    C = _load_npy("Data/C.npy", flat=True)
+    C = _load_npy(os.path.join(data_dir, "C.npy"), flat=True)
     C_stock = C[earth_indices]
     indices = np.unique(C_stock)
     C_stock_2 = C_stock.copy()
@@ -43,6 +42,8 @@ def initialize(N=17048, prescale=True):
 
     subs = C.reshape(-1) + 1
     C_vect = C[earth_indices]
+
+    a_norm = None
 
     beta = 0.965
     tail_bands = 0.2
