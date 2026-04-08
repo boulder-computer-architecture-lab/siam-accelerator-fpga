@@ -17,7 +17,6 @@ Vivado/kria/build/
 *.mmi
 *.ltx
 *.dcp
-*.rpt
 *.wdb
 *.html
 *.xml

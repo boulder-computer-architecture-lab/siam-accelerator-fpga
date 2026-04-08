@@ -8,6 +8,8 @@ module tb_accelerator;
                                      // is changed to update all the relevant header files
 
     // --- Config ---
+
+    parameter PROFILE = 1;
     
     // Clock frequency
     parameter  real     PCLK0_FREQ_MHZ = 250.0;
@@ -17,11 +19,11 @@ module tb_accelerator;
     parameter ARCH_TYPE = 0; // (0=mvm_split, 1=mvm_sym, 2=ile_iter)
     
     // Matrix dimensions
-    parameter int ELEMENTS_PER_ROW = 168;
+    parameter int ELEMENTS_PER_ROW = 64*6;
     parameter int NUM_ROWS         = 192;
 
     // Precision
-    parameter int ELEMENT_WIDTH = 16; // Can be 16, 32, or 64
+    parameter int ELEMENT_WIDTH = 64; // Can be 16, 32, or 64
 
     // Num iterations
     parameter int NUM_TRANSFERS = 1;
@@ -326,7 +328,7 @@ module tb_accelerator;
     // Instantiate DUT
     accelerator #(
         .ARCH_TYPE(ARCH_TYPE),
-        .PROFILE(0),
+        .PROFILE(PROFILE),
         .DATA_WIDTH(DATA_WIDTH),
         .ADDR_WIDTH(ADDR_WIDTH),
         .ID_WIDTH(ID_WIDTH),
