@@ -228,7 +228,7 @@ module accelerator #(
         end
 
         if (ARCH_TYPE == 0) begin
-            mvm_split #(
+            mvm_base #(
                 .DATA_WIDTH         (DATA_WIDTH),
                 .ADDR_WIDTH         (ADDR_WIDTH),
                 .STRB_WIDTH         (STRB_WIDTH),
@@ -281,7 +281,7 @@ module accelerator #(
                 .s_axi_b_bready (s_axi_b_bready)
             );
         end else if (ARCH_TYPE == 1) begin
-            mvm_sym #(
+            mvm_mult #(
                 .DATA_WIDTH         (DATA_WIDTH),
                 .ADDR_WIDTH         (ADDR_WIDTH),
                 .STRB_WIDTH         (STRB_WIDTH),

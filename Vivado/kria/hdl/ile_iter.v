@@ -98,7 +98,7 @@ module ile_iter #(
     wire                            mvm_s_axi_bvalid;
     wire                            mvm_s_axi_bready;
 
-    mvm_split #(
+    mvm_base #(
         .DATA_WIDTH         (DATA_WIDTH),
         .ADDR_WIDTH         (ADDR_WIDTH),
         .STRB_WIDTH         (STRB_WIDTH),

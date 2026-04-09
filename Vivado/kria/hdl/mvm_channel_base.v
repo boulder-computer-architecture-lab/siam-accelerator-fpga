@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module mvm_channel_split #(
+module mvm_channel_base #(
     parameter DATA_WIDTH         = 128,
     parameter ADDR_WIDTH         = 64,
     parameter STRB_WIDTH         = DATA_WIDTH / 8,

@@ -16,7 +16,7 @@ module tb_accelerator;
     localparam realtime PCLK0_PERIOD_NS = 1000.0 / PCLK0_FREQ_MHZ;
 
     // Accelerator type
-    parameter ARCH_TYPE = 0; // (0=mvm_split, 1=mvm_sym, 2=ile_iter)
+    parameter ARCH_TYPE = 0; // (0=mvm_base, 1=mvm_mult, 2=ile_iter)
     
     // Matrix dimensions
     parameter int ELEMENTS_PER_ROW = 64*6;
