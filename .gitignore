@@ -47,5 +47,5 @@ Vivado/kria/build/
 # Big model files
 ########################################
 *trmult*
-Model/Output/
+*Output/
 *.bak*
