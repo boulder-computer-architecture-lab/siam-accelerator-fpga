@@ -9,6 +9,8 @@ def _load_npy(path, flat=False, mmap=False):
 
 
 def initialize(data_dir="Data", prescale=True):
+    global alpha, theta, earth_indices
+
     H0   = _load_npy(os.path.join(data_dir, "H0.npy"    )           )
     a    = _load_npy(os.path.join(data_dir, "a_H0.npy"  ), flat=True)
     tau0 = _load_npy(os.path.join(data_dir, "tau_H0.npy"), flat=True)

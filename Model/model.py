@@ -67,7 +67,7 @@ def model(H, T, state, mvm_precision=64):
                 (gamma1 / (nu * (gamma1 + mu * ksi)) * popdens[earth_indices]) ** (gamma1 * theta / ksi)
 
     # Initial guess for uhat
-    uhat_loop = np.ones(n) / n
+    uhat_loop = np.ones(n)
 
     # MVM Precision
     np_dtype = {16: np.float16, 32: np.float32, 64: np.float64}[mvm_precision]
@@ -106,7 +106,8 @@ def model(H, T, state, mvm_precision=64):
 
         iter = 0
 
-        loop_start = time.perf_counter()
+        #loop_start = time.perf_counter()
+        uhats = []
 
         # Inner loop
         while error >= 1e-2:
@@ -116,10 +117,10 @@ def model(H, T, state, mvm_precision=64):
             
             # Matrix product
             input_integral_inner = np.clip(input_integral_inner, dtype_tiny, dtype_max)
-            mvm_start = time.perf_counter()
+            #mvm_start = time.perf_counter()
             rhs = np.dot(trmult_prec, input_integral_inner.astype(np_dtype))
-            mvm_end = time.perf_counter()
-            print(f"mvm elapsed time: {mvm_end - mvm_start:.4f} (s)")
+            #mvm_end = time.perf_counter()
+            #print(f"mvm elapsed time: {mvm_end - mvm_start:.4f} (s)")
             rhs[np.isinf(rhs)] = dtype_max
 
             if prescale: rhs = rhs.astype(np.float64) / 100.0 # unscale
@@ -132,10 +133,13 @@ def model(H, T, state, mvm_precision=64):
             if (error_new > error): alpha_ += beta_ * (1 - alpha_)
             error = error_new
 
+            uhats.append(uhat_loop) 
             print(f"iter {iter}: error={error}")
 
-        loop_end = time.perf_counter()
+        np.save("uhats.npy", np.array(uhats, dtype=object), allow_pickle=True)
+        #loop_end = time.perf_counter()
 
+        """
         print(f"loop elapsed time: {loop_end - loop_start:.4f} (s)")
         print(f"num_iterations: {iter}")
         print(f" 1%: {np.quantile(uhat_loop, 0.01)}")
@@ -146,8 +150,9 @@ def model(H, T, state, mvm_precision=64):
         print(f"90%: {np.quantile(uhat_loop, 0.90)}")
         print(f"99%: {np.quantile(uhat_loop, 0.99)}")
         print(f"uhat_loop avg: {np.mean(uhat_loop)}")
+        """
 
-        np.save(f"cpu-result{mvm_precision}.npy", uhat_loop)
+        #np.save(f"cpu-result{mvm_precision}.npy", uhat_loop)
 
         import sys
         sys.exit(-1)
@@ -170,7 +175,8 @@ def model(H, T, state, mvm_precision=64):
                   tau[:, t] ** (1 / (1 + 2 * theta)) * l[:, t] ** ((alpha - 1 + (lambda_ + gamma1 / ksi - (1 - mu)) * theta) / (1 + 2 * theta))
         
         # Normalize wages relative to Princeton, NJ
-        w[:, t] = w[:, t] / w[3198, t]  # 3198 is the Python index for Princeton, NJ
+        princeton = 3298 if n == 17048 else 167
+        w[:, t] = w[:, t] / w[princeton, t]  # 3198 is the Python index for Princeton, NJ
 
         # Calculate real GDP per capita using equation (22)
         realgdp[:, t] = u[:, t] / a_norm * l[:, t] ** lambda_

@@ -1,16 +1,16 @@
 import numpy as np
-#from scipy.stats import pearsonr
+from scipy.stats import pearsonr
 from model import model
 
 def accumarray(indices, values, size):
     ## A replacement for MATLAB's accumarray
-    #result = np.zeros(size)
-    #for idx, value in zip(indices, values):
-    #    j = int(idx) - 1
-    #    if 0 <= j < size:
-    #        result[j] += value
-    #return result
-    return np.bincount(indices.astype(int) - 1, weights=values, minlength=size)
+    #return np.bincount(indices.astype(int) - 1, weights=values, minlength=size)
+    result = np.zeros(size)
+    for idx, value in zip(indices, values):
+        j = int(idx) - 1
+        if 0 <= j < size:
+            result[j] += value
+    return result
 
 def results(H, T, state, mvm_precision=64):
     # Global variables
@@ -44,33 +44,33 @@ def results(H, T, state, mvm_precision=64):
 
     # Calculate correlations - Cell Level
     print('CORRELATIONS - CELL LEVEL')
-    #corr_pop5 = pearsonr(pop5[earth_indices], H * l[:, 4])
-    #corr_log_pop5 = pearsonr(np.log(pop5[earth_indices]), np.log(H * l[:, 4]))
-    #corr_pop5_diff = pearsonr(pop5[earth_indices] - pop0[earth_indices], H * l[:, 4] - pop0[earth_indices])
-    #corr_log_pop5_diff = pearsonr(np.log(pop5[earth_indices]) - np.log(pop0[earth_indices]), np.log(H * l[:, 4]) - np.log(pop0[earth_indices]))
+    corr_pop5 = pearsonr(pop5[earth_indices], H * l[:, 4])
+    corr_log_pop5 = pearsonr(np.log(pop5[earth_indices]), np.log(H * l[:, 4]))
+    corr_pop5_diff = pearsonr(pop5[earth_indices] - pop0[earth_indices], H * l[:, 4] - pop0[earth_indices])
+    corr_log_pop5_diff = pearsonr(np.log(pop5[earth_indices]) - np.log(pop0[earth_indices]), np.log(H * l[:, 4]) - np.log(pop0[earth_indices]))
 
     print('CORRELATIONS - COUNTRY LEVEL')
-    #pop5_ctry_d = accumarray(C_vect, pop5[earth_indices], 168)
-    #pop5_ctry_m = accumarray(C_vect, H * l[:, 4], 168)
+    pop5_ctry_d = accumarray(C_vect, pop5[earth_indices], 168)
+    pop5_ctry_m = accumarray(C_vect, H * l[:, 4], 168)
     pop0_ctry = accumarray(C_vect, pop0[earth_indices], 168)
-    #corr_pop5_ctry_d = pearsonr(pop5_ctry_d, pop5_ctry_m)
-    #corr_log_pop5_ctry_d = pearsonr(np.log(pop5_ctry_d), np.log(pop5_ctry_m))
-    #corr_pop5_ctry_diff = pearsonr(pop5_ctry_d - pop0_ctry, pop5_ctry_m - pop0_ctry)
-    #corr_log_pop5_ctry_diff = pearsonr(np.log(pop5_ctry_d) - np.log(pop0_ctry), np.log(pop5_ctry_m) - np.log(pop0_ctry))
+    corr_pop5_ctry_d = pearsonr(pop5_ctry_d, pop5_ctry_m)
+    corr_log_pop5_ctry_d = pearsonr(np.log(pop5_ctry_d), np.log(pop5_ctry_m))
+    corr_pop5_ctry_diff = pearsonr(pop5_ctry_d - pop0_ctry, pop5_ctry_m - pop0_ctry)
+    corr_log_pop5_ctry_diff = pearsonr(np.log(pop5_ctry_d) - np.log(pop0_ctry), np.log(pop5_ctry_m) - np.log(pop0_ctry))
 
     # Fertility-Adjusted Correlations - Cell Level
     print('CORRELATIONS (FERTILITY-ADJUSTED) - CELL LEVEL')
-    #corr_pop5_fertadj = pearsonr(pop5_fertadj[earth_indices], H * l[:, 4])
-    #corr_log_pop5_fertadj = pearsonr(np.log(pop5_fertadj[earth_indices]), np.log(H * l[:, 4]))
-    #corr_pop5_fertadj_diff = pearsonr(pop5_fertadj[earth_indices] - pop0[earth_indices], H * l[:, 4] - pop0[earth_indices])
-    #corr_log_pop5_fertadj_diff = pearsonr(np.log(pop5_fertadj[earth_indices]) - np.log(pop0[earth_indices]), np.log(H * l[:, 4]) - np.log(pop0[earth_indices]))
+    corr_pop5_fertadj = pearsonr(pop5_fertadj[earth_indices], H * l[:, 4])
+    corr_log_pop5_fertadj = pearsonr(np.log(pop5_fertadj[earth_indices]), np.log(H * l[:, 4]))
+    corr_pop5_fertadj_diff = pearsonr(pop5_fertadj[earth_indices] - pop0[earth_indices], H * l[:, 4] - pop0[earth_indices])
+    corr_log_pop5_fertadj_diff = pearsonr(np.log(pop5_fertadj[earth_indices]) - np.log(pop0[earth_indices]), np.log(H * l[:, 4]) - np.log(pop0[earth_indices]))
 
     print('CORRELATIONS (FERTILITY-ADJUSTED) - COUNTRY LEVEL')
-    #pop5_fertadj_ctry = accumarray(C_vect, pop5_fertadj[earth_indices], 168)
-    #corr_pop5_fertadj_ctry = pearsonr(pop5_fertadj_ctry, pop5_ctry_m)
-    #corr_log_pop5_fertadj_ctry = pearsonr(np.log(pop5_fertadj_ctry), np.log(pop5_ctry_m))
-    #corr_pop5_fertadj_ctry_diff = pearsonr(pop5_fertadj_ctry - pop0_ctry, pop5_ctry_m - pop0_ctry)
-    #corr_log_pop5_fertadj_ctry_diff = pearsonr(np.log(pop5_fertadj_ctry) - np.log(pop0_ctry), np.log(pop5_ctry_m) - np.log(pop0_ctry))
+    pop5_fertadj_ctry = accumarray(C_vect, pop5_fertadj[earth_indices], 168)
+    corr_pop5_fertadj_ctry = pearsonr(pop5_fertadj_ctry, pop5_ctry_m)
+    corr_log_pop5_fertadj_ctry = pearsonr(np.log(pop5_fertadj_ctry), np.log(pop5_ctry_m))
+    corr_pop5_fertadj_ctry_diff = pearsonr(pop5_fertadj_ctry - pop0_ctry, pop5_ctry_m - pop0_ctry)
+    corr_log_pop5_fertadj_ctry_diff = pearsonr(np.log(pop5_fertadj_ctry) - np.log(pop0_ctry), np.log(pop5_ctry_m) - np.log(pop0_ctry))
 
     # Compute world aggregates
     u2 = np.zeros((n, T), dtype=np.float32)

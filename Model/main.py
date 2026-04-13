@@ -7,8 +7,8 @@ from results import results
 from backward import backward
 from plots import plots
 
-DATA_DIR = "Data_Country"
-MVM_PREC = 16
+DATA_DIR = "Data"
+MVM_PREC = 64
 PRESCALE = (MVM_PREC == 16)
 
 # Initialize model

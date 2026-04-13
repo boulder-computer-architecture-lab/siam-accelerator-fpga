@@ -16,14 +16,15 @@ module tb_accelerator;
     localparam realtime PCLK0_PERIOD_NS = 1000.0 / PCLK0_FREQ_MHZ;
 
     // Accelerator type
-    parameter ARCH_TYPE = 0; // (0=mvm_base, 1=mvm_mult, 2=ile_iter)
+    parameter ARCH_TYPE   = 0; // (0=mvm, 2=ile_iter)
+    parameter NUM_GUESSES = 1; // (1=mvm_base, >1=mvm_mult)
     
     // Matrix dimensions
-    parameter int ELEMENTS_PER_ROW = 64*6;
+    parameter int ELEMENTS_PER_ROW = 64*6*4;
     parameter int NUM_ROWS         = 192;
 
     // Precision
-    parameter int ELEMENT_WIDTH = 64; // Can be 16, 32, or 64
+    parameter int ELEMENT_WIDTH = 16; // Can be 16, 32, or 64
 
     // Num iterations
     parameter int NUM_TRANSFERS = 1;
@@ -328,6 +329,7 @@ module tb_accelerator;
     // Instantiate DUT
     accelerator #(
         .ARCH_TYPE(ARCH_TYPE),
+        .NUM_GUESSES(NUM_GUESSES),
         .PROFILE(PROFILE),
         .DATA_WIDTH(DATA_WIDTH),
         .ADDR_WIDTH(ADDR_WIDTH),
