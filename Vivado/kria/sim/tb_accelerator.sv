@@ -20,8 +20,8 @@ module tb_accelerator;
     parameter NUM_GUESSES = 1; // (1=mvm_base, >1=mvm_mult)
     
     // Matrix dimensions
-    parameter int ELEMENTS_PER_ROW = 2048;
-    parameter int NUM_ROWS         = 2048;
+    parameter int ELEMENTS_PER_ROW = 17088;
+    parameter int NUM_ROWS         = 17088;
 
     // Precision
     parameter int ELEMENT_WIDTH = 16; // Can be 16, 32, or 64
@@ -576,6 +576,7 @@ module tb_accelerator;
 
                 $display("\n[VEC] Starting vector write @ time %0t (partitioned)\n", $time);
 
+                /*
                 for (int j = 0; j < NUM_RAM_PARTITIONS; j++) begin
                     part_base = AXI_RAM_BASE_ADDR + j * PARTITION_ALIGN;
                     vec_base_offset = j * AXI_RAM_WORDS_PER_PARTITION;
@@ -591,6 +592,21 @@ module tb_accelerator;
                         burst_offset = part_base + word_off * AXI_RAM_STRB_WIDTH;
                         axi_write_burst(burst_offset, final_burst_len, vec_base_offset + word_off);
                     end
+                end
+                */
+
+                vec_base_offset = AXI_RAM_BASE_ADDR;
+
+                for (int k = 0; k < num_full_bursts_contig; k++) begin
+                    automatic int unsigned word_off = k * MAX_BURST_LEN;
+                    burst_offset = vec_base_offset + word_off * AXI_RAM_STRB_WIDTH;
+                    axi_write_burst(burst_offset, MAX_BURST_LEN, word_off);
+                end
+
+                if (final_burst_len_contig > 0) begin
+                    automatic int unsigned word_off = num_full_bursts_contig * MAX_BURST_LEN;
+                    burst_offset = vec_base_offset + word_off * AXI_RAM_STRB_WIDTH;
+                    axi_write_burst(burst_offset, final_burst_len_contig, word_off);
                 end
             end
 

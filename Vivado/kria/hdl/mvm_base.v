@@ -336,6 +336,7 @@ module mvm_base #(
     wire                          ram_m_axi_rvalid  [NUM_RAM_PARTITIONS-1:0];
     wire                          ram_m_axi_rready  [NUM_RAM_PARTITIONS-1:0];
 
+    /*
     axi_crossbar_wr #(
         .S_COUNT(1),
         .M_COUNT(NUM_RAM_PARTITIONS),
@@ -361,6 +362,63 @@ module mvm_base #(
         .s_axi_wuser(1'b0),
         .m_axi_wuser(),
         .m_axi_buser()
+    );
+    */
+    axi_write_partition_splitter #(
+        .NUM_PARTITIONS       (NUM_RAM_PARTITIONS),
+        .ADDR_WIDTH           (ADDR_WIDTH),
+        .DATA_WIDTH           (AXI_RAM_DATA_WIDTH),
+        .STRB_WIDTH           (AXI_RAM_STRB_WIDTH),
+        .S_ID_WIDTH           (ID_WIDTH),
+        .M_ID_WIDTH           (AXI_RAM_ID_WIDTH),
+        .PARTITION_BEATS      (AXI_RAM_WORDS_PER_PARTITION),
+        .S_AXI_EXPECTED_AWADDR(AXI_RAM_BASE_ADDR)
+    ) axi_b_splitter_inst (
+        .clk(clk), .rstn(rstn),
+    
+        .s_axi_awid   (s_axi_b_awid),
+        .s_axi_awaddr (s_axi_b_awaddr),
+        .s_axi_awlen  (s_axi_b_awlen),
+        .s_axi_awsize (s_axi_b_awsize),
+        .s_axi_awburst(s_axi_b_awburst),
+        .s_axi_awlock (s_axi_b_awlock),
+        .s_axi_awcache(s_axi_b_awcache),
+        .s_axi_awprot (s_axi_b_awprot),
+        .s_axi_awvalid(s_axi_b_awvalid),
+        .s_axi_awready(s_axi_b_awready),
+    
+        .s_axi_wdata  (s_axi_b_wdata),
+        .s_axi_wstrb  (s_axi_b_wstrb),
+        .s_axi_wlast  (s_axi_b_wlast),
+        .s_axi_wvalid (s_axi_b_wvalid),
+        .s_axi_wready (s_axi_b_wready),
+    
+        .s_axi_bid    (s_axi_b_bid),
+        .s_axi_bresp  (s_axi_b_bresp),
+        .s_axi_bvalid (s_axi_b_bvalid),
+        .s_axi_bready (s_axi_b_bready),
+    
+        .m_axi_awid   ({ram_m_axi_awid[3], ram_m_axi_awid[2], ram_m_axi_awid[1], ram_m_axi_awid[0]}),
+        .m_axi_awaddr ({ram_m_axi_awaddr[3], ram_m_axi_awaddr[2], ram_m_axi_awaddr[1], ram_m_axi_awaddr[0]}),
+        .m_axi_awlen  ({ram_m_axi_awlen[3], ram_m_axi_awlen[2], ram_m_axi_awlen[1], ram_m_axi_awlen[0]}),
+        .m_axi_awsize ({ram_m_axi_awsize[3], ram_m_axi_awsize[2], ram_m_axi_awsize[1], ram_m_axi_awsize[0]}),
+        .m_axi_awburst({ram_m_axi_awburst[3], ram_m_axi_awburst[2], ram_m_axi_awburst[1], ram_m_axi_awburst[0]}),
+        .m_axi_awlock ({ram_m_axi_awlock[3], ram_m_axi_awlock[2], ram_m_axi_awlock[1], ram_m_axi_awlock[0]}),
+        .m_axi_awcache({ram_m_axi_awcache[3], ram_m_axi_awcache[2], ram_m_axi_awcache[1], ram_m_axi_awcache[0]}),
+        .m_axi_awprot ({ram_m_axi_awprot[3], ram_m_axi_awprot[2], ram_m_axi_awprot[1], ram_m_axi_awprot[0]}),
+        .m_axi_awvalid({ram_m_axi_awvalid[3], ram_m_axi_awvalid[2], ram_m_axi_awvalid[1], ram_m_axi_awvalid[0]}),
+        .m_axi_awready({ram_m_axi_awready[3], ram_m_axi_awready[2], ram_m_axi_awready[1], ram_m_axi_awready[0]}),
+
+        .m_axi_wdata  ({ram_m_axi_wdata[3], ram_m_axi_wdata[2], ram_m_axi_wdata[1], ram_m_axi_wdata[0]}),
+        .m_axi_wstrb  ({ram_m_axi_wstrb[3], ram_m_axi_wstrb[2], ram_m_axi_wstrb[1], ram_m_axi_wstrb[0]}),
+        .m_axi_wlast  ({ram_m_axi_wlast[3], ram_m_axi_wlast[2], ram_m_axi_wlast[1], ram_m_axi_wlast[0]}),
+        .m_axi_wvalid ({ram_m_axi_wvalid[3], ram_m_axi_wvalid[2], ram_m_axi_wvalid[1], ram_m_axi_wvalid[0]}),
+        .m_axi_wready ({ram_m_axi_wready[3], ram_m_axi_wready[2], ram_m_axi_wready[1], ram_m_axi_wready[0]}),
+
+        .m_axi_bid    ({ram_m_axi_bid[3], ram_m_axi_bid[2], ram_m_axi_bid[1], ram_m_axi_bid[0]}),
+        .m_axi_bresp  ({ram_m_axi_bresp[3], ram_m_axi_bresp[2], ram_m_axi_bresp[1], ram_m_axi_bresp[0]}),
+        .m_axi_bvalid ({ram_m_axi_bvalid[3], ram_m_axi_bvalid[2], ram_m_axi_bvalid[1], ram_m_axi_bvalid[0]}),
+        .m_axi_bready ({ram_m_axi_bready[3], ram_m_axi_bready[2], ram_m_axi_bready[1], ram_m_axi_bready[0]})
     );
 
     axi_crossbar_rd #(
