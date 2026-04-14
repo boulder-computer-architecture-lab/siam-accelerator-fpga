@@ -20,8 +20,8 @@ module tb_accelerator;
     parameter NUM_GUESSES = 1; // (1=mvm_base, >1=mvm_mult)
     
     // Matrix dimensions
-    parameter int ELEMENTS_PER_ROW = 64*6*4;
-    parameter int NUM_ROWS         = 192;
+    parameter int ELEMENTS_PER_ROW = 2048;
+    parameter int NUM_ROWS         = 2048;
 
     // Precision
     parameter int ELEMENT_WIDTH = 16; // Can be 16, 32, or 64
@@ -464,7 +464,7 @@ module tb_accelerator;
         // Initialize matrix_values
         for (int i = 0; i < NUM_CHANNELS; i++) begin
             for (int j = 0; j < ELEMENTS_PER_ROW; j++) begin
-                automatic real matrix_r = ((j+1.0) / ((i+1) * 100.0));
+                automatic real matrix_r = ((j+1.0) / ((i+1) * 1000.0));
                 matrix_values[i][j] = real_to_elem(matrix_r);
                 //$display("Channel %0d : matrix_values[%0d] = %h (real=%f)", i, j, matrix_values[i][j], elem_to_real(matrix_values[i][j]));
             end
@@ -475,7 +475,7 @@ module tb_accelerator;
         
         // Initialize vector_values
         for (int j = 0; j < ELEMENTS_PER_ROW; j++) begin
-            automatic real vector_r = ((j+1.0) / 1000.0);
+            automatic real vector_r = ((j+1.0) / 100000.0);
             vector_values[j] = real_to_elem(vector_r);
             //$display("vector_values[%0d] = %h (real=%f)", j, vector_values[j], elem_to_real(vector_values[j]));
         end

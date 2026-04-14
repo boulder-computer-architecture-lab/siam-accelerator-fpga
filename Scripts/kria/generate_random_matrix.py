@@ -31,9 +31,9 @@ def main():
     num_cols         = args.num_cols
 
     precision   = args.dtype.replace("fp", "")
-    matrix_path = os.path.join(MTRX_DIR, f"matrix{precision}.npy")
+    matrix_path = os.path.join(MTRX_DIR, f"matrix{precision}_{num_cols}.npy")
 
-    matrix_data = np.random.rand(num_channels, rows_per_channel, num_cols).astype(dtype)
+    matrix_data = np.random.rand(num_channels, rows_per_channel, num_cols).astype(dtype) * 100.0
     np.save(matrix_path, matrix_data)
     print(f"Matrix saved to {os.path.abspath(matrix_path)}")
 
