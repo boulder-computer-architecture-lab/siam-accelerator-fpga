@@ -16,15 +16,14 @@ module tb_accelerator;
     localparam realtime PCLK0_PERIOD_NS = 1000.0 / PCLK0_FREQ_MHZ;
 
     // Accelerator type
-    parameter ARCH_TYPE   = 0; // (0=mvm, 2=ile_iter)
-    parameter NUM_GUESSES = 1; // (1=mvm_base, >1=mvm_mult)
+    parameter ARCH_TYPE = 1; // (0=mvm_base, 1=mvm_buff, 2=ile_iter)
     
     // Matrix dimensions
-    parameter int ELEMENTS_PER_ROW = 17088;
-    parameter int NUM_ROWS         = 17088;
+    parameter int ELEMENTS_PER_ROW = 192;
+    parameter int NUM_ROWS         = 192;
 
     // Precision
-    parameter int ELEMENT_WIDTH = 16; // Can be 16, 32, or 64
+    parameter int ELEMENT_WIDTH = 64; // Can be 16, 32, or 64
 
     // Num iterations
     parameter int NUM_TRANSFERS = 1;
@@ -76,6 +75,15 @@ module tb_accelerator;
 
     int unsigned num_full_bursts_contig = AXI_RAM_WORDS_PER_ROW / MAX_BURST_LEN;
     int unsigned final_burst_len_contig = AXI_RAM_WORDS_PER_ROW % MAX_BURST_LEN;
+
+    localparam string MATRIX_MEMFILE_0 =
+        (ELEMENT_WIDTH == 16) ? "a_ch0_16.mem" : "a_ch0_64.mem";
+    localparam string MATRIX_MEMFILE_1 =
+        (ELEMENT_WIDTH == 16) ? "a_ch1_16.mem" : "a_ch1_64.mem";
+    localparam string MATRIX_MEMFILE_2 =
+        (ELEMENT_WIDTH == 16) ? "a_ch2_16.mem" : "a_ch2_64.mem";
+    localparam string MATRIX_MEMFILE_3 =
+        (ELEMENT_WIDTH == 16) ? "a_ch3_16.mem" : "a_ch3_64.mem";
     
     // --- Asserts ---
     
@@ -320,6 +328,9 @@ module tb_accelerator;
     logic                          s_axi_b_bready  = '{default:'0};
              
     // Testbench signals
+    logic [DATA_WIDTH-1:0] matrix_words [NUM_CHANNELS][ROWS_PER_CHANNEL*WORDS_PER_ROW_PADDED-1];
+    elem_t matrix_rows [NUM_CHANNELS][ROWS_PER_CHANNEL][ELEMENTS_PER_ROW_PADDED];
+
     elem_t matrix_values [NUM_CHANNELS][ELEMENTS_PER_ROW_PADDED];
     elem_t vector_values [ELEMENTS_PER_ROW_PADDED];
     real   expected      [NUM_CHANNELS-1:0][ROWS_PER_CHANNEL-1:0];    
@@ -329,7 +340,6 @@ module tb_accelerator;
     // Instantiate DUT
     accelerator #(
         .ARCH_TYPE(ARCH_TYPE),
-        .NUM_GUESSES(NUM_GUESSES),
         .PROFILE(PROFILE),
         .DATA_WIDTH(DATA_WIDTH),
         .ADDR_WIDTH(ADDR_WIDTH),
@@ -460,22 +470,10 @@ module tb_accelerator;
             outputs_received[i] = 0;
             m_axis_tready[i] = 1;
         end
-    
-        // Initialize matrix_values
-        for (int i = 0; i < NUM_CHANNELS; i++) begin
-            for (int j = 0; j < ELEMENTS_PER_ROW; j++) begin
-                automatic real matrix_r = ((j+1.0) / ((i+1) * 1000.0));
-                matrix_values[i][j] = real_to_elem(matrix_r);
-                //$display("Channel %0d : matrix_values[%0d] = %h (real=%f)", i, j, matrix_values[i][j], elem_to_real(matrix_values[i][j]));
-            end
-            for (int j = ELEMENTS_PER_ROW; j < ELEMENTS_PER_ROW_PADDED; j++) begin
-                matrix_values[i][j] = '0;
-            end
-        end
-        
+            
         // Initialize vector_values
         for (int j = 0; j < ELEMENTS_PER_ROW; j++) begin
-            automatic real vector_r = ((j+1.0) / 100000.0);
+            automatic real vector_r = ((j+1.0) * 100.0);
             vector_values[j] = real_to_elem(vector_r);
             //$display("vector_values[%0d] = %h (real=%f)", j, vector_values[j], elem_to_real(vector_values[j]));
         end
@@ -488,6 +486,51 @@ module tb_accelerator;
                 vector_buf[w][j*ELEMENT_WIDTH +: ELEMENT_WIDTH] = vector_values[w * AXI_RAM_ELEMENTS_PER_WORD + j];
                 //$display("vector_buf[%0d][%0d] = %h (real = %f)", 
                 //         w, j, vector_buf[w][j*ELEMENT_WIDTH +: ELEMENT_WIDTH], elem_to_real(vector_values[w * AXI_RAM_ELEMENTS_PER_WORD + j]));
+            end
+        end
+
+        // Initialize matrix_values
+        if (ARCH_TYPE != 1) begin
+            for (int i = 0; i < NUM_CHANNELS; i++) begin
+                for (int j = 0; j < ELEMENTS_PER_ROW; j++) begin
+                    automatic real matrix_r = ((j+1.0) / ((i+1) * 1000.0));
+                    matrix_values[i][j] = real_to_elem(matrix_r);
+                    //$display("Channel %0d : matrix_values[%0d] = %h (real=%f)", i, j, matrix_values[i][j], elem_to_real(matrix_values[i][j]));
+                end
+                for (int j = ELEMENTS_PER_ROW; j < ELEMENTS_PER_ROW_PADDED; j++) begin
+                    matrix_values[i][j] = '0;
+                end
+            end
+        end else begin
+            $readmemh(MATRIX_MEMFILE_0, matrix_words[0]);
+            $readmemh(MATRIX_MEMFILE_1, matrix_words[1]);
+            $readmemh(MATRIX_MEMFILE_2, matrix_words[2]);
+            $readmemh(MATRIX_MEMFILE_3, matrix_words[3]);
+
+            for (int ch = 0; ch < NUM_CHANNELS; ch++) begin
+                for (int row = 0; row < ROWS_PER_CHANNEL; row++) begin
+                    for (int word_idx = 0; word_idx < WORDS_PER_ROW_PADDED; word_idx++) begin
+                        automatic int flat_word_idx = row * WORDS_PER_ROW_PADDED + word_idx;
+
+                        for (int k = 0; k < ELEMENTS_PER_WORD; k++) begin
+                            automatic int col = word_idx * ELEMENTS_PER_WORD + k;
+
+                            matrix_rows[ch][row][col] =
+                                matrix_words[ch][flat_word_idx][k*ELEMENT_WIDTH +: ELEMENT_WIDTH];
+                        end
+                    end
+                end
+            end
+            for (int ch = 0; ch < NUM_CHANNELS; ch++) begin
+                for (int row = 0; row < ROWS_PER_CHANNEL; row++) begin
+                    expected[ch][row] = 0.0;
+
+                    for (int col = 0; col < ELEMENTS_PER_ROW_PADDED; col++) begin
+                        expected[ch][row] +=
+                            elem_to_real(matrix_rows[ch][row][col]) *
+                            elem_to_real(vector_values[col]);
+                    end
+                end
             end
         end
          
@@ -517,8 +560,20 @@ module tb_accelerator;
                 @(posedge clk);
                 send_vec = 0;
                 wait(vec_done);
-            end
-            else begin
+            end else if (ARCH_TYPE == 1) begin
+                $display("\n[CTRL] ARCH_TYPE=1 -> send vector only (matrix is internal ROM)\n");
+
+                send_vec = 1;
+                @(posedge clk);
+                send_vec = 0;
+                wait(vec_done);
+
+                // No external matrix transfer for mvm_buff
+                for (int ch = 0; ch < NUM_CHANNELS; ch++) begin
+                    matrix_sent[ch]       = 1'b1;
+                    matrix_sent_batch[ch] = 1'b1;
+                end
+            end else begin
                 $display("\n[CTRL] ARCH_TYPE=%0d -> send vector first\n", ARCH_TYPE);
     
                 send_vec = 1;
@@ -622,62 +677,68 @@ module tb_accelerator;
     generate
         for (genvar ch = 0; ch < NUM_CHANNELS; ch++) begin : matrix_channel_driver
             initial begin                
-                for (int i = 0; i < NUM_TRANSFERS; i++) begin
-                
-                    wait(send_matrix);
+                if (ARCH_TYPE == 1) begin
+                    s_axis_a_tdata [ch] = '0;
+                    s_axis_a_tvalid[ch] = 1'b0;
+                    s_axis_a_tlast [ch] = 1'b0;
+                end else begin
+                    for (int i = 0; i < NUM_TRANSFERS; i++) begin
                     
-                    for (int b = 0; b < BATCHES_PER_TRANSFER; b++) begin
-                        matrix_sent_batch[ch] = 0;
-                    
-                        // Stagger first input
-                        repeat(OFFSET_CYCLES * input_order[ch]) @(posedge clk);
-
-                        for (int j = 0; j < ROWS_PER_CHANNEL_PER_BATCH; j++) begin  
+                        wait(send_matrix);
                         
-                            automatic int row = b*ROWS_PER_CHANNEL_PER_BATCH + j;
-                            expected[ch][row] = 0.0;
+                        for (int b = 0; b < BATCHES_PER_TRANSFER; b++) begin
+                            matrix_sent_batch[ch] = 0;
+                        
+                            // Stagger first input
+                            repeat(OFFSET_CYCLES * input_order[ch]) @(posedge clk);
+
+                            for (int j = 0; j < ROWS_PER_CHANNEL_PER_BATCH; j++) begin  
                             
-                            // Send inputs
-                            for (int word_idx = 0; word_idx < WORDS_PER_ROW_PADDED; word_idx++) begin
-                            
-                                // Random delays
-                                //automatic bit rand_bool = ($urandom_range(0, 999) < 1); // 0.1% chance
-                                //if (rand_bool) repeat(256) @(posedge clk);
-                            
-                                s_axis_a_tdata[ch] = '0;
-                                for (int k = 0; k < ELEMENTS_PER_WORD; k++) begin
-                                    automatic int abs_idx = word_idx * ELEMENTS_PER_WORD + k;
-                                    automatic real matrix_r = elem_to_real(matrix_values[ch][abs_idx]);
-                                    automatic real vector_r = elem_to_real(vector_values[abs_idx]);
+                                automatic int row = b*ROWS_PER_CHANNEL_PER_BATCH + j;
+                                expected[ch][row] = 0.0;
+                                
+                                // Send inputs
+                                for (int word_idx = 0; word_idx < WORDS_PER_ROW_PADDED; word_idx++) begin
+                                
+                                    // Random delays
+                                    //automatic bit rand_bool = ($urandom_range(0, 999) < 1); // 0.1% chance
+                                    //if (rand_bool) repeat(256) @(posedge clk);
+                                
+                                    s_axis_a_tdata[ch] = '0;
+                                    for (int k = 0; k < ELEMENTS_PER_WORD; k++) begin
+                                        automatic int abs_idx = word_idx * ELEMENTS_PER_WORD + k;
+                                        automatic real matrix_r = elem_to_real(matrix_values[ch][abs_idx]);
+                                        automatic real vector_r = elem_to_real(vector_values[abs_idx]);
+                                        
+                                        s_axis_a_tdata[ch][k*ELEMENT_WIDTH +: ELEMENT_WIDTH] = matrix_values[ch][abs_idx];
+                                        expected[ch][row] += matrix_r * vector_r;
+                                    end
                                     
-                                    s_axis_a_tdata[ch][k*ELEMENT_WIDTH +: ELEMENT_WIDTH] = matrix_values[ch][abs_idx];
-                                    expected[ch][row] += matrix_r * vector_r;
+                                    s_axis_a_tvalid[ch] = 1;
+                                    s_axis_a_tlast[ch]  = (word_idx == WORDS_PER_ROW_PADDED-1) 
+                                                    && (j == ROWS_PER_CHANNEL_PER_BATCH-1);
+            
+                                    do begin
+                                        @(posedge clk);
+                                    end while (!(s_axis_a_tvalid[ch] && s_axis_a_tready[ch]));
+                                    
+                                    s_axis_a_tvalid[ch] = 0;
+                                    s_axis_a_tlast[ch]  = 0;
                                 end
-                                
-                                s_axis_a_tvalid[ch] = 1;
-                                s_axis_a_tlast[ch]  = (word_idx == WORDS_PER_ROW_PADDED-1) 
-                                                   && (j == ROWS_PER_CHANNEL_PER_BATCH-1);
-        
-                                do begin
-                                    @(posedge clk);
-                                end while (!(s_axis_a_tvalid[ch] && s_axis_a_tready[ch]));
-                                
-                                s_axis_a_tvalid[ch] = 0;
-                                s_axis_a_tlast[ch]  = 0;
+                                $display("Channel %0d: Row %0d finished sending @ time %0t", ch, row, $time);
                             end
-                            $display("Channel %0d: Row %0d finished sending @ time %0t", ch, row, $time);
+                            
+                            matrix_sent_batch[ch] = 1;
+
+                            // Batch synchronization barrier
+                            wait(matrix_batch_done);
+                            @(posedge clk);
+                            if (ch == 0) $display("\nTransfer %0d: Batch %0d of %0d sent @ time %0t\n", 
+                                                                    finished_count, b+1, BATCHES_PER_TRANSFER, $time);
                         end
                         
-                        matrix_sent_batch[ch] = 1;
-
-                        // Batch synchronization barrier
-                        wait(matrix_batch_done);
-                        @(posedge clk);
-                        if (ch == 0) $display("\nTransfer %0d: Batch %0d of %0d sent @ time %0t\n", 
-                                                                finished_count, b+1, BATCHES_PER_TRANSFER, $time);
+                        matrix_sent[ch] = 1;
                     end
-                    
-                    matrix_sent[ch] = 1;
                 end
             end
         end

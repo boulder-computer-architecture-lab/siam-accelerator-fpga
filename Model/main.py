@@ -8,7 +8,7 @@ from backward import backward
 from plots import plots
 
 DATA_DIR = "Data"
-MVM_PREC = 64
+MVM_PREC = 32
 PRESCALE = (MVM_PREC == 16)
 
 # Initialize model

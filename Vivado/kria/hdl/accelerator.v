@@ -3,7 +3,6 @@
 module accelerator #(
     parameter ARCH_TYPE          = 0,
     parameter PROFILE            = 1,
-    parameter NUM_GUESSES        = 1,
 
     parameter AXI_RAM_BASE_ADDR  = 64'h8000_0000,
     
@@ -289,12 +288,12 @@ module accelerator #(
                 .STRB_WIDTH         (STRB_WIDTH),
                 .ID_WIDTH           (ID_WIDTH),
                 .ELEMENT_WIDTH      (ELEMENT_WIDTH),
-                .ELEMENTS_PER_WORD  (ELEMENTS_PER_WORD),
-                .ELEMENTS_PER_ROW   (ELEMENTS_PER_ROW),
-                .WORDS_PER_ROW      (WORDS_PER_ROW),
                 .NUM_ROWS           (NUM_ROWS),
+                .ELEMENTS_PER_ROW   (ELEMENTS_PER_ROW),
                 .NUM_CHANNELS       (NUM_CHANNELS),
                 .NUM_RAM_PARTITIONS (NUM_RAM_PARTITIONS),
+                .ELEMENTS_PER_WORD  (ELEMENTS_PER_WORD),
+                .WORDS_PER_ROW      (WORDS_PER_ROW),
                 .ROWS_PER_CHANNEL   (ROWS_PER_CHANNEL),
                 .AXI_RAM_DATA_WIDTH (AXI_RAM_DATA_WIDTH),
                 .AXI_RAM_BASE_ADDR  (AXI_RAM_BASE_ADDR)
@@ -302,12 +301,6 @@ module accelerator #(
                 .clk(clk),
                 .rstn(rstn),
                 
-                // Input channels
-                .s_axis_a_tdata (s_axis_a_tdata),
-                .s_axis_a_tvalid(s_axis_a_tvalid),
-                .s_axis_a_tready(s_axis_a_tready),
-                .s_axis_a_tlast (s_axis_a_tlast),
-            
                 // Output channels
                 .m_axis_tdata (m_axis_tdata),
                 .m_axis_tvalid(m_axis_tvalid),

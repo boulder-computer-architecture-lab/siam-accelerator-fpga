@@ -107,7 +107,6 @@ def model(H, T, state, mvm_precision=64):
         iter = 0
 
         #loop_start = time.perf_counter()
-        uhats = []
 
         # Inner loop
         while error >= 1e-2:
@@ -133,10 +132,9 @@ def model(H, T, state, mvm_precision=64):
             if (error_new > error): alpha_ += beta_ * (1 - alpha_)
             error = error_new
 
-            uhats.append(uhat_loop) 
-            print(f"iter {iter}: error={error}")
+            #print(f"iter {iter}: error={error}")
+            print(error)
 
-        np.save("uhats.npy", np.array(uhats, dtype=object), allow_pickle=True)
         #loop_end = time.perf_counter()
 
         """

@@ -22,14 +22,10 @@ rsync -avz \
     --exclude='*matrix*' \
     --exclude='*trmult*' \
 	--exclude="*.un~" \
+	--exclude="*__pycache__" \
     -e ssh \
     "$targetdev:$remotedir/" \
     "$destdir/"
-
-# Get root owned notebook
-#ssh -t "$targetdev" \
-#  "sudo tar -C '$notebookdir' -cf - ." \
-#| tar -C "$destdir/notebooks" -xpf -
 
 # Keep only the 2 most recent backups, delete older ones
 find "$backup_root" -maxdepth 1 -type d -name 'backup_*' \
